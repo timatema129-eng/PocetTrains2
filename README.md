@@ -9,7 +9,7 @@ Unity **6000.3.12f1 (6.3 LTS)**, URP 2D, C#, Unity UI + TextMeshPro, новый 
 Assets/
 ├── Scripts/
 │   ├── Data/     Конфиги (ScriptableObject): RegionData, CityData, RailwayLineData, RouteData,
-│   │             TrainData, WagonData, BoxConfig, LinePalette, RewardData, TripBiome и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
+│   │             TrainData, WagonData, BoxConfig, LinePalette, RewardData, TripBiome, MetroData и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
 │   ├── Core/     Фундамент: GameRoot (точка входа), GameState (прогресс игрока),
 │   │             TrainInstance (поезд игрока), TrainService (правила движения),
 │   │             WalletService (монеты и доллары), WagonService (вагоны, склад, выгрузка),
@@ -18,7 +18,7 @@ Assets/
 │   │             MaintenanceService (износ, техобслуживание, поломки, ремонт, буксировка),
 │   │             ExchangeService (курс и обмен $ → монеты), RewardService (награды),
 │   │             QuestService (задания в городах), AchievementService (достижения),
-│   │             AdsService (рекламные награды), IAdService/StubAdService (показ рекламы, пока заглушка),
+│   │             MetroService (метро: станции, ветки, пассивный доход), AdsService (рекламные награды), IAdService/StubAdService (показ рекламы, пока заглушка),
 │   │             SaveService (сохранение), GameClock (реальное время), GameEvents (события)
 │   ├── Trains/   TrainState, TrainView (картинка поезда), TrainLayer (картинки всех поездов)
 │   ├── Map/      MapView, StationView, LineView, MapNetworkView, MapNavigator (перетаскивание и масштаб),
@@ -27,7 +27,7 @@ Assets/
 │   │             TrainSelection (выбранный поезд), TrainListWindow (список поездов), ListRow, WalletText,
 │   │             BoxWindow (боксы и сборка), ShopWindow (магазин), QuestWindow (задания и достижения),
 │   │             AdPrompt (окно «посмотри рекламу?»), FlyingPrize (летящий приз), TripView (вид поездки сбоку),
-│   │             TrainStatusText, RouteButton
+│   │             MetroWindow (схема метро), TrainStatusText, RouteButton
 │   └── Editor/   MapDataImporter (карта из текста), ParisPrototypeBuilder (сцена)
 ├── Data/
 │   ├── MapSource/*.txt   ← карта мира: по файлу на континент + _World.txt. Правится руками
@@ -132,6 +132,11 @@ Assets/
   в GameDatabase → Network). Электрифицированная линия на карте толще, в строке «под током». Электропоезд
   (флажок isElectric в модели; сейчас это «Маглев») на таких участках не тратит топливо, а если под током весь
   маршрут — не тратит и толчок. Обычный поезд по ним ездит, но выгоды не получает. Режим маршрута пишет, сколько км под током.
+- **Метро (Этап 14):** в окне станции крупного города (Москва, Лондон, Париж, Токио… — список в GameDatabase → Metro)
+  строка «Метро» → окно со схемой веток. Построить 5000 монет, дальше +станция и новая ветка (в мегаполисе до 6 веток
+  по 10 станций, в крупном городе 4 по 7). Доход копится в кассе («Забрать»): при 10 станциях ≈ 30% от среднего
+  дохода логистики в час (×1.5 в мегаполисе), больше станций — больше; пока игра закрыта — 10% от этого (до 12 ч).
+  Поезда метро изнашиваются (1%/ч), ТО вдвое дешевле обычного; при 0% метро встаёт — «Новые поезда». Числа — черновик.
 - **Сохранение:** останови Play, пока поезд едет, подожди и снова нажми Play. Поезд будет там,
   куда успел доехать за это время.
 - Цены и доход — черновик, меняются в `Assets/Data/GameDatabase` (раздел Economy).

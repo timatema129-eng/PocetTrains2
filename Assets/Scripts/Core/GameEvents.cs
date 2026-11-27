@@ -74,6 +74,11 @@ namespace TrainManager.Core
 
         public void RaiseAdsChanged() => AdsChanged?.Invoke();
 
+        /// <summary>Метро построено/расширено/обслужено/собран доход.</summary>
+        public event Action<string> MetroChanged;
+
+        public void RaiseMetroChanged(string cityId) => MetroChanged?.Invoke(cityId);
+
         /// <summary>У линии изменились пути или цвет.</summary>
         public event Action<RailwayLineData> LineChanged;
 

@@ -305,6 +305,7 @@ namespace TrainManager.EditorTools
             CreateQuestWindow(canvasT, root, navigator, window);
 
             CreateTripView(canvasT, root, selection);
+            window.metroWindow = CreateMetroWindow(canvasT, root);
 
             // Реклама: окно-вопрос и летящий приз (последними — поверх всего)
             AdPrompt prompt = CreateAdPrompt(canvasT);
@@ -769,6 +770,51 @@ namespace TrainManager.EditorTools
             view.stage = stage;
             view.caption = caption;
             // Окно активно в сцене: TripView построит картинку и скроется в Awake
+        }
+
+        private static MetroWindow CreateMetroWindow(Transform canvasT, GameRoot root)
+        {
+            var go = new GameObject("MetroWindow", typeof(RectTransform));
+            go.transform.SetParent(canvasT, false);
+            Place((RectTransform)go.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(900f, 0f));
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.96f);
+            var layout = go.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(14, 14, 12, 14);
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = go.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // Заголовок с кнопкой закрытия
+            var header = new GameObject("Header", typeof(RectTransform));
+            header.transform.SetParent(go.transform, false);
+            var hl = header.AddComponent<HorizontalLayoutGroup>();
+            hl.childControlWidth = true;
+            hl.childControlHeight = true;
+            hl.childForceExpandWidth = false;
+            header.AddComponent<LayoutElement>().minHeight = 50f;
+            TMP_Text title = CreateText("Title", header.transform, "Метро", 28, TextAlignmentOptions.MidlineLeft);
+            title.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            Button close = CreateSmallButton("Close", header.transform, "×", 30);
+            var ce = close.gameObject.AddComponent<LayoutElement>();
+            ce.preferredWidth = 60f;
+            ce.preferredHeight = 50f;
+
+            ListRow row = CreateListRowTemplate(go.transform);
+
+            MetroWindow window = go.AddComponent<MetroWindow>();
+            window.root = root;
+            window.titleText = title;
+            window.closeButton = close;
+            window.listContainer = (RectTransform)go.transform;
+            window.rowTemplate = row;
+            // Окно активно в сцене: MetroWindow сам скроется в Awake
+            return window;
         }
 
         private static AdPrompt CreateAdPrompt(Transform canvasT)

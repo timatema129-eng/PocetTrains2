@@ -204,6 +204,75 @@ namespace TrainManager.Data
                 regionIds = new List<string> { "south_america", "oceania" } },
         };
 
+        [Header("Metro (поздняя игра; числа — черновик)")]
+        public List<MetroTier> metroTiers = new List<MetroTier>
+        {
+            new MetroTier { tierId = "mega", displayName = "мегаполис", maxBranches = 6, maxStationsPerBranch = 10, incomeMultiplier = 1.5f },
+            new MetroTier { tierId = "big", displayName = "крупный город", maxBranches = 4, maxStationsPerBranch = 7, incomeMultiplier = 1f },
+        };
+        public List<MetroCity> metroCities = new List<MetroCity>
+        {
+            new MetroCity("moscow", "mega"),
+            new MetroCity("london", "mega"),
+            new MetroCity("paris", "mega"),
+            new MetroCity("tokyo", "mega"),
+            new MetroCity("new_york", "mega"),
+            new MetroCity("shanghai", "mega"),
+            new MetroCity("beijing", "mega"),
+            new MetroCity("seoul", "mega"),
+            new MetroCity("berlin", "big"),
+            new MetroCity("rome", "big"),
+            new MetroCity("madrid", "big"),
+            new MetroCity("warsaw", "big"),
+            new MetroCity("istanbul", "big"),
+            new MetroCity("kyiv", "big"),
+            new MetroCity("st_petersburg", "big"),
+            new MetroCity("tehran", "big"),
+            new MetroCity("karachi", "big"),
+            new MetroCity("delhi", "big"),
+            new MetroCity("mumbai", "big"),
+            new MetroCity("bangkok", "big"),
+            new MetroCity("singapore", "big"),
+            new MetroCity("jakarta", "big"),
+            new MetroCity("hong_kong", "big"),
+            new MetroCity("osaka", "big"),
+            new MetroCity("toronto", "big"),
+            new MetroCity("los_angeles", "big"),
+            new MetroCity("chicago", "big"),
+            new MetroCity("mexico_city", "big"),
+            new MetroCity("cairo", "big"),
+            new MetroCity("lagos", "big"),
+            new MetroCity("johannesburg", "big"),
+            new MetroCity("buenos_aires", "big"),
+            new MetroCity("sao_paulo", "big"),
+            new MetroCity("rio", "big"),
+            new MetroCity("melbourne", "big"),
+            new MetroCity("sydney", "big")
+        };
+        [Tooltip("Построить метро (первая ветка с одной станцией), монет")]
+        [Min(0)] public int metroBuildCoins = 5000;
+        [Tooltip("Новая станция = база + шаг × уже открытых станций в этом метро")]
+        [Min(0)] public int metroStationBase = 500;
+        [Min(0)] public int metroStationStep = 150;
+        [Tooltip("Новая ветка = база + шаг × уже открытых веток")]
+        [Min(0)] public int metroBranchBase = 3000;
+        [Min(0)] public int metroBranchStep = 2000;
+        [Tooltip("Доход: при referenceStations станциях метро даёт эту долю от среднего дохода логистики (в час)")]
+        [Range(0f, 2f)] public float metroShareOfLogistics = 0.3f;
+        [Min(1)] public int metroReferenceStations = 10;
+        [Tooltip("Минимальный доход станции в час (пока доходов с логистики почти нет)")]
+        [Min(0f)] public float metroMinIncomePerStationHour = 10f;
+        [Tooltip("Пока игра закрыта (АФК): доля от обычного дохода метро")]
+        [Range(0f, 1f)] public float metroOfflineShare = 0.1f;
+        [Tooltip("Сколько часов офлайна максимум копится")]
+        [Min(1)] public int metroMaxOfflineHours = 12;
+        [Tooltip("Износ поездов метро, % в час (в 2 раза медленнее обычных поездов — закрытая система)")]
+        [Min(0f)] public float metroWearPerHour = 1f;
+        [Tooltip("ТО метро = (база + k × износ²) × множитель (0.5 — вдвое дешевле обычных поездов)")]
+        [Min(0f)] public float metroMaintenanceMultiplier = 0.5f;
+        [Tooltip("Выпустить новые поезда метро, когда старые износились до 0%")]
+        [Min(0)] public int metroRenewCoins = 2000;
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]
@@ -231,6 +300,18 @@ namespace TrainManager.Data
             foreach (TripBiome b in tripBiomes)
                 if (b != null && b.biomeId == "forest") return b;
             return tripBiomes[0];
+        }
+
+        public MetroTier GetMetroTier(CityData city)
+        {
+            if (city == null) return null;
+            foreach (MetroCity m in metroCities)
+            {
+                if (m == null || m.cityId != city.cityId) continue;
+                foreach (MetroTier t in metroTiers)
+                    if (t != null && t.tierId == m.tierId) return t;
+            }
+            return null;
         }
 
         public BoxConfig GetBox(string boxId)

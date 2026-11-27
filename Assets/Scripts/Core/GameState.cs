@@ -53,6 +53,13 @@ namespace TrainManager.Core
         public PlayerStats stats = new PlayerStats();
         public List<string> claimedAchievementIds = new List<string>();
 
+        /// <summary>Метро в городах.</summary>
+        public List<MetroState> metros = new List<MetroState>();
+        /// <summary>Когда метро последний раз начисляло доход (для офлайна), Unix мс.</summary>
+        public long metroLastTickUnixMs;
+        /// <summary>Доход логистики по часам за последние сутки (для дохода метро).</summary>
+        public List<IncomeBucket> logisticsIncome = new List<IncomeBucket>();
+
         /// <summary>Реклама: сколько просмотрено сегодня.</summary>
         public AdState ads = new AdState();
 
@@ -143,6 +150,26 @@ namespace TrainManager.Core
         public int progress;
         public long startUnixMs;
         public long endUnixMs;
+    }
+
+    /// <summary>Метро одного города.</summary>
+    [Serializable]
+    public class MetroState
+    {
+        public string cityId;
+        /// <summary>Станций на каждой ветке.</summary>
+        public List<int> branches = new List<int>();
+        /// <summary>Состояние поездов метро 0..100.</summary>
+        public float condition = 100f;
+        /// <summary>Накопленный доход — игрок забирает кнопкой.</summary>
+        public double pendingCoins;
+    }
+
+    [Serializable]
+    public class IncomeBucket
+    {
+        public long hour;   // номер часа Unix-времени
+        public long coins;
     }
 
     /// <summary>Просмотры рекламы за текущий день (день по часам устройства).</summary>

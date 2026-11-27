@@ -33,6 +33,8 @@ namespace TrainManager.UI
         public TMP_Text refuelLabel;
         public RectTransform listContainer;
         public ListRow rowTemplate;
+        [Tooltip("Окно метро (для крупных городов)")]
+        public MetroWindow metroWindow;
         [Tooltip("Окно-сообщение (подарок станции)")]
         public AdPrompt prompt;
 
@@ -179,6 +181,17 @@ namespace TrainManager.UI
                 ListRow regionRow = AddRow($"<b>Регион «{region.displayName}» закрыт</b>", $"Открыть {region.priceCoins}",
                     () => root.Network.TryUnlockRegion(region));
                 regionRow.region = region;
+            }
+
+            // ---- Метро (только крупные города) ----
+            if (root.Metro.CanHaveMetro(City))
+            {
+                MetroState metro = root.Metro.Get(City);
+                CityData metroCity = City;
+                AddRow(metro != null
+                        ? $"<b>Метро</b> · {root.Metro.TotalStations(metro)} ст. · касса {(long)metro.pendingCoins}"
+                        : "<b>Метро</b> · можно построить",
+                    "Метро", () => { if (metroWindow != null) metroWindow.Open(metroCity); });
             }
 
             // ---- Задания в этом городе ----

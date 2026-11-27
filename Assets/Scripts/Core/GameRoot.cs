@@ -31,6 +31,7 @@ namespace TrainManager.Core
         public QuestService Quests { get; private set; }
         public AchievementService Achievements { get; private set; }
         public AdsService Ads { get; private set; }
+        public MetroService Metro { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -66,6 +67,7 @@ namespace TrainManager.Core
             Exchange = new ExchangeService(database, clock, Wallet);
             Rewards = new RewardService(State, database, Wallet, Parts, Events);
             Quests = new QuestService(State, database, clock, Events, Network, Rewards); // подписывается на доставку
+            Metro = new MetroService(State, database, clock, Wallet, Events);
             Ads = new AdsService(State, database, clock, Rewards, Wagons, new StubAdService(), Events); // позже — реальный SDK
 
             if (isNewGame)
@@ -90,12 +92,14 @@ namespace TrainManager.Core
             Events.WalletChanged += (currency, balance, delta, reason) => Save(); // обмен, покупки, доход
             Events.QuestsChanged += () => Save();
             Events.AdsChanged += () => Save();
+            Events.MetroChanged += cityId => Save();
             Events.AchievementUnlocked += a => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.
             Trains.Tick();
             Quests.Tick();
+            Metro.Tick(); // офлайн-доход метро (10% от обычного)
 
             Save();
         }
@@ -243,6 +247,7 @@ namespace TrainManager.Core
         {
             Trains.Tick();
             Quests.Tick();
+            Metro.Tick();
         }
 
         private void OnApplicationPause(bool paused)
