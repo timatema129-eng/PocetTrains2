@@ -68,6 +68,7 @@ namespace TrainManager.Core
             Events.StationChanged += city => Save();
             Events.RegionUnlocked += region => Save();
             Events.LineBought += line => Save();
+            Events.LineChanged += line => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.

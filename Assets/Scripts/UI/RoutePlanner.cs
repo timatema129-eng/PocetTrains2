@@ -124,9 +124,17 @@ namespace TrainManager.UI
             SyncStart(train);
             UpdateHighlights();
 
-            if (sendButton != null) sendButton.interactable = root.Trains.CanStartTrip(train, plan, out _);
+            bool canSend = root.Trains.CanStartTrip(train, plan, out string reason);
+            if (sendButton != null) sendButton.interactable = canSend;
             if (clearButton != null) clearButton.interactable = plan.Count > 1;
-            if (planText != null) planText.text = BuildText(train);
+            if (planText != null)
+            {
+                string text = BuildText(train);
+                // Почему нельзя отправить (линия занята и т.п.); про топливо уже написано в BuildText
+                if (!canSend && plan.Count >= 2 && reason != null && !reason.StartsWith("не хватает топлива"))
+                    text += $"\n<color=#ff6060>Нельзя отправить: {reason}</color>";
+                planText.text = text;
+            }
         }
 
         private void UpdateHighlights()

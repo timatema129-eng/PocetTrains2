@@ -45,6 +45,11 @@ namespace TrainManager.Core
         public void RaiseRegionUnlocked(RegionData region) => RegionUnlocked?.Invoke(region);
         public void RaiseLineBought(RailwayLineData line) => LineBought?.Invoke(line);
 
+        /// <summary>У линии изменились пути или цвет.</summary>
+        public event Action<RailwayLineData> LineChanged;
+
+        public void RaiseLineChanged(RailwayLineData line) => LineChanged?.Invoke(line);
+
         public void RaiseWalletChanged(Currency currency, long balance, long delta, string reason) =>
             WalletChanged?.Invoke(currency, balance, delta, reason);
 

@@ -37,6 +37,19 @@ namespace TrainManager.Core
         public string locationId;
     }
 
+    /// <summary>Состояние купленной линии: докупленные пути и цвет, выбранный игроком.</summary>
+    [Serializable]
+    public class LineState
+    {
+        public string lineId;
+
+        /// <summary>Сколько путей докуплено. Поездов на линии одновременно = 1 + extraTracks.</summary>
+        public int extraTracks;
+
+        /// <summary>Цвет из LinePalette, выбранный игроком. -1 — цвет по умолчанию (из карты).</summary>
+        public int colorIndex = -1;
+    }
+
     /// <summary>Состояние станции игрока: докупленные места и уже купленные вагоны из текущего списка.</summary>
     [Serializable]
     public class StationState

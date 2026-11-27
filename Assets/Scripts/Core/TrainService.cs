@@ -149,8 +149,93 @@ namespace TrainManager.Core
                 return false;
             }
 
+            if (!CheckTracksFree(train, stops, model, out reason))
+                return false;
+
             reason = null;
             return true;
+        }
+
+        // ================= Занятость путей =================
+
+        /// <summary>
+        /// Хватит ли путей на каждой линии маршрута. Для каждого участка считаем окно времени,
+        /// когда наш поезд будет на линии, и сколько других поездов в это же окно едут по ней
+        /// (в любую сторону). Если их уже столько, сколько путей, — отправить нельзя.
+        /// </summary>
+        private bool CheckTracksFree(TrainInstance train, IReadOnlyList<CityData> stops, TrainData model,
+            out string reason)
+        {
+            long now = clock.NowUnixMs;
+            List<long> times = BuildStopTimes(stops, model.baseSpeed, now);
+
+            for (int i = 1; i < stops.Count; i++)
+            {
+                RailwayLineData line = db.FindLine(stops[i - 1], stops[i]);
+                int busy = CountTrainsOnLine(line, times[i - 1], times[i], train, out long freeAtMs);
+                int tracks = network.GetTrackCount(line);
+                if (busy >= tracks)
+                {
+                    float wait = Mathf.Max(0f, (freeAtMs - now) / 1000f);
+                    reason = $"линия {stops[i - 1].displayName} — {stops[i].displayName} занята " +
+                             $"(путей: {tracks}), освободится через ~{wait:0} с";
+                    return false;
+                }
+            }
+
+            reason = null;
+            return true;
+        }
+
+        /// <summary>Времена прибытия на остановки, если выехать в startMs.</summary>
+        private List<long> BuildStopTimes(IReadOnlyList<CityData> stops, float speed, long startMs)
+        {
+            var times = new List<long>(stops.Count) { startMs };
+            long t = startMs;
+            for (int i = 1; i < stops.Count; i++)
+            {
+                RailwayLineData line = db.FindLine(stops[i - 1], stops[i]);
+                t += LegDurationMs(line != null ? line.distance : 0f, speed);
+                times.Add(t);
+            }
+            return times;
+        }
+
+        /// <summary>
+        /// Сколько поездов (кроме except) будут на линии line в окне [fromMs, toMs).
+        /// freeAtMs — когда раньше всего освободится один из них.
+        /// </summary>
+        public int CountTrainsOnLine(RailwayLineData line, long fromMs, long toMs, TrainInstance except,
+            out long freeAtMs)
+        {
+            int count = 0;
+            freeAtMs = long.MaxValue;
+            if (line == null) return 0;
+
+            foreach (TrainInstance other in state.trains)
+            {
+                if (other == null || other == except || !other.IsMoving) continue;
+                TripState trip = other.trip;
+                for (int k = 0; k < trip.LastIndex; k++)
+                {
+                    long start = trip.stopTimesUnixMs[k];
+                    long end = trip.stopTimesUnixMs[k + 1];
+                    if (end <= fromMs || start >= toMs) continue;
+                    if (!line.Connects(trip.stopIds[k], trip.stopIds[k + 1])) continue;
+
+                    count++;
+                    if (end < freeAtMs) freeAtMs = end;
+                    break; // один поезд занимает линию один раз
+                }
+            }
+            return count;
+        }
+
+        /// <summary>Сколько поездов едут по линии прямо сейчас.</summary>
+        public int GetBusyTracks(RailwayLineData line)
+        {
+            long now = clock.NowUnixMs;
+            return CountTrainsOnLine(line, now, now + 1, null, out _);
         }
 
         /// <summary>
@@ -170,18 +255,14 @@ namespace TrainManager.Core
             fuel.Consume(train, tripFuel);
 
             long now = clock.NowUnixMs;
-            long t = now;
+            List<long> times = BuildStopTimes(stops, model.baseSpeed, now);
+            long t = times[times.Count - 1];
 
             var trip = new TripState { routeId = routeId ?? "", reachedStopIndex = 0 };
-            trip.stopIds.Add(stops[0].cityId);
-            trip.stopTimesUnixMs.Add(now);
-
-            for (int i = 1; i < stops.Count; i++)
+            for (int i = 0; i < stops.Count; i++)
             {
-                float distance = db.FindLine(stops[i - 1], stops[i]).distance;
-                t += LegDurationMs(distance, model.baseSpeed);
                 trip.stopIds.Add(stops[i].cityId);
-                trip.stopTimesUnixMs.Add(t);
+                trip.stopTimesUnixMs.Add(times[i]);
             }
 
             train.trip = trip;

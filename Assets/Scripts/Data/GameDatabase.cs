@@ -63,6 +63,12 @@ namespace TrainManager.Data
         [Min(0f)] public float linePricePerKm = 0.5f;
         [Tooltip("В новой игре бесплатно даются все линии из стартового города")]
         public bool freeLinesFromStartCity = true;
+        [Tooltip("Цена второго пути на линии (сколько поездов могут ехать одновременно), монет")]
+        [Min(0f)] public float trackPriceBase = 300f;
+        [Tooltip("Насколько дорожает каждый следующий путь, монет")]
+        [Min(0f)] public float trackPriceStep = 200f;
+        [Tooltip("Максимум путей на одной линии")]
+        [Min(1)] public int maxTracksPerLine = 5;
 
         [Header("Stations")]
         [Tooltip("Мест для вагонов на складе станции в начале")]

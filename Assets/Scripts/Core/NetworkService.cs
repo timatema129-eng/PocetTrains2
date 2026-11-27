@@ -28,6 +28,7 @@ namespace TrainManager.Core
             this.events = events;
             if (state.unlockedRegionIds == null) state.unlockedRegionIds = new List<string>();
             if (state.ownedLineIds == null) state.ownedLineIds = new List<string>();
+            if (state.lineStates == null) state.lineStates = new List<LineState>();
         }
 
         // ================= Проверки =================
@@ -103,6 +104,93 @@ namespace TrainManager.Core
             return true;
         }
 
+        // ================= Пути (сколько поездов одновременно) =================
+
+        /// <summary>Сколько поездов могут одновременно ехать по линии. В начале 1.</summary>
+        public int GetTrackCount(RailwayLineData line)
+        {
+            LineState ls = line != null ? state.FindLineState(line.lineId) : null;
+            return 1 + (ls != null ? ls.extraTracks : 0);
+        }
+
+        public long GetTrackPrice(RailwayLineData line)
+        {
+            int extra = GetTrackCount(line) - 1;
+            return (long)Mathf.Round(db.trackPriceBase + db.trackPriceStep * extra);
+        }
+
+        public bool CanAddTrack(RailwayLineData line, out string reason)
+        {
+            if (!IsLineOwned(line))
+            {
+                reason = "линия не куплена";
+                return false;
+            }
+            if (GetTrackCount(line) >= db.maxTracksPerLine)
+            {
+                reason = $"максимум {db.maxTracksPerLine} путей";
+                return false;
+            }
+            long price = GetTrackPrice(line);
+            if (!wallet.CanAfford(Currency.Coins, price))
+            {
+                reason = $"не хватает монет ({price})";
+                return false;
+            }
+            reason = null;
+            return true;
+        }
+
+        public bool TryAddTrack(RailwayLineData line)
+        {
+            if (!CanAddTrack(line, out string reason))
+            {
+                Debug.LogWarning($"[Network] Добавить путь нельзя: {reason}");
+                return false;
+            }
+            if (!wallet.TrySpend(Currency.Coins, GetTrackPrice(line), $"путь {line.cityA.displayName} — {line.cityB.displayName}"))
+                return false;
+
+            state.GetOrCreateLineState(line.lineId).extraTracks++;
+            Debug.Log($"[Network] Линия {line.cityA.displayName} — {line.cityB.displayName}: путей {GetTrackCount(line)}");
+            events.RaiseLineChanged(line);
+            return true;
+        }
+
+        // ================= Цвет линии (выбор игрока) =================
+
+        /// <summary>Цвет, выбранный игроком; false — у линии цвет по умолчанию.</summary>
+        public bool TryGetCustomColor(RailwayLineData line, out Color color)
+        {
+            LineState ls = line != null ? state.FindLineState(line.lineId) : null;
+            if (ls != null && ls.colorIndex >= 0 && ls.colorIndex < LinePalette.Colors.Count)
+            {
+                color = LinePalette.Colors[ls.colorIndex];
+                return true;
+            }
+            color = line != null ? line.color : Color.white;
+            return false;
+        }
+
+        /// <summary>Следующий цвет палитры; после последнего — снова цвет по умолчанию.</summary>
+        public void CycleLineColor(RailwayLineData line)
+        {
+            if (!IsLineOwned(line)) return;
+
+            LineState ls = state.GetOrCreateLineState(line.lineId);
+            ls.colorIndex++;
+            if (ls.colorIndex >= LinePalette.Colors.Count) ls.colorIndex = -1;
+            events.RaiseLineChanged(line);
+        }
+
+        public void ResetLineColor(RailwayLineData line)
+        {
+            LineState ls = line != null ? state.FindLineState(line.lineId) : null;
+            if (ls == null) return;
+            ls.colorIndex = -1;
+            events.RaiseLineChanged(line);
+        }
+
         // ================= Регионы =================
 
         public bool CanUnlockRegion(RegionData region, out string reason)
@@ -171,6 +259,7 @@ namespace TrainManager.Core
 
             state.unlockedRegionIds.RemoveAll(id => !regionIds.Contains(id));
             state.ownedLineIds.RemoveAll(id => !lineIds.Contains(id));
+            state.lineStates.RemoveAll(ls => ls == null || !lineIds.Contains(ls.lineId));
         }
 
         private void Unlock(RegionData region)

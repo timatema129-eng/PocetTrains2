@@ -518,33 +518,8 @@ namespace TrainManager.EditorTools
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 30f;
 
-            // Шаблон строки: текст + кнопка справа
-            var rowGo = new GameObject("RowTemplate", typeof(RectTransform));
-            rowGo.transform.SetParent(content, false);
-            var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
-            rowLayout.spacing = 8f;
-            rowLayout.childAlignment = TextAnchor.MiddleLeft;
-            rowLayout.childControlWidth = true;
-            rowLayout.childControlHeight = true;
-            rowLayout.childForceExpandWidth = false;
-            rowLayout.childForceExpandHeight = false;
-            rowGo.AddComponent<LayoutElement>().minHeight = 44f;
-
-            TMP_Text rowLabel = CreateText("Label", rowGo.transform, "", 21, TextAlignmentOptions.MidlineLeft);
-            var labelElement = rowLabel.gameObject.AddComponent<LayoutElement>();
-            labelElement.flexibleWidth = 1f;
-            labelElement.preferredWidth = 10f; // ширину даёт flexible, а не длина текста — иначе длинный текст выталкивает кнопку
-
-            Button rowButton = CreateSmallButton("Button", rowGo.transform, "", 20);
-            var buttonElement = rowButton.gameObject.AddComponent<LayoutElement>();
-            buttonElement.preferredWidth = 170f;
-            buttonElement.preferredHeight = 42f;
-
-            ListRow row = rowGo.AddComponent<ListRow>();
-            row.label = rowLabel;
-            row.button = rowButton;
-            row.buttonLabel = rowButton.GetComponentInChildren<TMP_Text>();
-            rowGo.SetActive(false);
+            // Шаблон строки: текст + две кнопки справа
+            ListRow row = CreateListRowTemplate(content);
 
             StationWindow window = go.AddComponent<StationWindow>();
             window.root = root;
@@ -602,7 +577,7 @@ namespace TrainManager.EditorTools
             // Окно остаётся активным в сцене: TrainListWindow сам скроет его в Awake и повесит кнопку
         }
 
-        /// <summary>Шаблон строки списка: текст + кнопка справа (выключен).</summary>
+        /// <summary>Шаблон строки списка: текст + кнопка справа + скрытая вторая кнопка (выключен).</summary>
         private static ListRow CreateListRowTemplate(Transform parent)
         {
             var rowGo = new GameObject("RowTemplate", typeof(RectTransform));
@@ -626,10 +601,19 @@ namespace TrainManager.EditorTools
             buttonElement.preferredWidth = 170f;
             buttonElement.preferredHeight = 42f;
 
+            // Вторая кнопка (например, «Цвет» у купленной линии). По умолчанию скрыта
+            Button rowButton2 = CreateSmallButton("Button2", rowGo.transform, "", 20);
+            var button2Element = rowButton2.gameObject.AddComponent<LayoutElement>();
+            button2Element.preferredWidth = 110f;
+            button2Element.preferredHeight = 42f;
+            rowButton2.gameObject.SetActive(false);
+
             ListRow row = rowGo.AddComponent<ListRow>();
             row.label = rowLabel;
             row.button = rowButton;
             row.buttonLabel = rowButton.GetComponentInChildren<TMP_Text>();
+            row.button2 = rowButton2;
+            row.button2Label = rowButton2.GetComponentInChildren<TMP_Text>(true);
             rowGo.SetActive(false);
             return row;
         }

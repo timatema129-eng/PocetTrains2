@@ -148,6 +148,8 @@ namespace TrainManager.UI
             sb.Append('|').Append(TrainsHere().Count);
             sb.Append('|').Append(root.Wallet.Coins); // доступность служебных вагонов зависит от денег
             sb.Append('|').Append(root.State.unlockedRegionIds.Count).Append('|').Append(root.State.ownedLineIds.Count);
+            foreach (LineState ls in root.State.lineStates) // пути и цвета линий
+                sb.Append('|').Append(ls.lineId).Append(':').Append(ls.extraTracks).Append(':').Append(ls.colorIndex);
             return sb.ToString();
         }
 
@@ -213,7 +215,11 @@ namespace TrainManager.UI
                 string text = $"  — {other.displayName} · {line.distance:0} км";
                 if (root.Network.IsLineOwned(line))
                 {
-                    AddRow(text + " · куплена");
+                    RailwayLineData captured = line;
+                    ListRow lineRow = AddRow(OwnedLineText(line, other), TrackButtonText(line),
+                        () => root.Network.TryAddTrack(captured));
+                    lineRow.line = line;
+                    lineRow.SetSecond("Цвет", () => root.Network.CycleLineColor(captured));
                 }
                 else if (!root.Network.CanBuyLine(line, out string why) && why.StartsWith("нужен регион"))
                 {
@@ -297,12 +303,33 @@ namespace TrainManager.UI
                                               root.Wagons.CanDetach(train, row.wagon, out _);
                 else if (row.serviceType != null)
                     row.button.interactable = root.Wagons.CanBuyService(row.serviceType, train, out _);
+                else if (row.line != null && root.Network.IsLineOwned(row.line))
+                {
+                    CityData other = row.line.cityA == City ? row.line.cityB : row.line.cityA;
+                    if (row.label != null) row.label.text = OwnedLineText(row.line, other); // занятость меняется со временем
+                    row.button.interactable = root.Network.CanAddTrack(row.line, out _);
+                }
                 else if (row.line != null)
                     row.button.interactable = root.Network.CanBuyLine(row.line, out _);
                 else if (row.region != null)
                     row.button.interactable = root.Network.CanUnlockRegion(row.region, out _);
             }
         }
+
+        /// <summary>«— Лондон · 340 км · ■ путей 1 (занято 1)».</summary>
+        private string OwnedLineText(RailwayLineData line, CityData other)
+        {
+            root.Network.TryGetCustomColor(line, out Color color);
+            int tracks = root.Network.GetTrackCount(line);
+            int busy = root.Trains.GetBusyTracks(line);
+            return $"  — {other.displayName} · {line.distance:0} км · <color=#{ColorUtility.ToHtmlStringRGB(color)}>■</color> " +
+                   $"путей {tracks} (занято {busy})";
+        }
+
+        private string TrackButtonText(RailwayLineData line) =>
+            root.Network.GetTrackCount(line) >= root.Database.maxTracksPerLine
+                ? "Путей макс."
+                : $"+путь {root.Network.GetTrackPrice(line)}";
 
         private ListRow AddRow(string text, string buttonText = null, UnityEngine.Events.UnityAction onClick = null)
         {

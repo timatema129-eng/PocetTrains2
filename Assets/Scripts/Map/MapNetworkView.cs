@@ -5,7 +5,8 @@ using TrainManager.UI;
 namespace TrainManager.Map
 {
     /// <summary>
-    /// Раскраска сети на карте: купленные линии яркие, некупленные тусклые;
+    /// Раскраска сети на карте: купленные линии яркие (цвет — выбранный игроком или по умолчанию),
+    /// некупленные тусклые;
     /// станции закрытых регионов серые. Пока идёт составление маршрута, станции красит RoutePlanner.
     /// </summary>
     public class MapNetworkView : MonoBehaviour
@@ -30,7 +31,10 @@ namespace TrainManager.Map
             nextRefresh = Time.unscaledTime + 0.25f;
 
             foreach (LineView view in lines)
-                view.SetOwned(root.Network.IsLineOwned(view.line));
+            {
+                root.Network.TryGetCustomColor(view.line, out Color color);
+                view.Apply(root.Network.IsLineOwned(view.line), color);
+            }
 
             if (planner != null && planner.IsPlanning) return;
 

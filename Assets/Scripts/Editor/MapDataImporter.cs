@@ -261,18 +261,8 @@ namespace TrainManager.EditorTools
         /// </summary>
         private static List<LineStyle> BuildPalette()
         {
-            const int hues = 24;
-            var shades = new[] { new Vector2(0.75f, 0.95f), new Vector2(0.45f, 0.85f), new Vector2(0.9f, 0.65f) };
-            var colors = new List<Color>();
-            foreach (Vector2 sv in shades)
-            {
-                for (int i = 0; i < hues; i++)
-                {
-                    // Порядок оттенков через золотое сечение — соседние в палитре цвета сильно отличаются
-                    float hue = (i * 0.618034f) % 1f;
-                    colors.Add(Color.HSVToRGB(hue, sv.x, sv.y));
-                }
-            }
+            const int hues = LinePalette.Hues;
+            var colors = new List<Color>(LinePalette.Colors);
 
             var palette = new List<LineStyle>();
             foreach (Color c in colors) palette.Add(new LineStyle { primary = c, secondary = c, pattern = LinePattern.Solid });

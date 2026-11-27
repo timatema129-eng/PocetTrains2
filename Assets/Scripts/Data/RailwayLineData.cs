@@ -12,7 +12,7 @@ namespace TrainManager.Data
 
     /// <summary>
     /// Железнодорожная линия — участок дороги между двумя соседними городами.
-    /// Линия не принадлежит поезду: по ней могут ехать несколько поездов.
+    /// По умолчанию у линии 1 путь — одновременно едет 1 поезд; дополнительные пути покупаются за монеты.
     /// Направление не важно: линия Париж–Лондон работает и в обратную сторону.
     /// Куплена ли линия и электрифицирована ли — хранится в GameState (на будущее).
     /// </summary>
@@ -33,7 +33,7 @@ namespace TrainManager.Data
         public float distance = 100f;
 
         [Header("Visual")]
-        [Tooltip("Цвет линии на карте. Только картинка, на логику не влияет")]
+        [Tooltip("Цвет линии на карте по умолчанию (игрок может сменить). Только картинка")]
         public Color color = new Color(0.9f, 0.75f, 0.3f);
         [Tooltip("Второй цвет (для двухцветной линии)")]
         public Color secondaryColor = Color.white;
@@ -46,6 +46,14 @@ namespace TrainManager.Data
         {
             if (!IsValid || a == null || b == null) return false;
             return (cityA == a && cityB == b) || (cityA == b && cityB == a);
+        }
+
+        /// <summary>То же по ID городов.</summary>
+        public bool Connects(string cityIdA, string cityIdB)
+        {
+            if (!IsValid || string.IsNullOrEmpty(cityIdA) || string.IsNullOrEmpty(cityIdB)) return false;
+            return (cityA.cityId == cityIdA && cityB.cityId == cityIdB) ||
+                   (cityA.cityId == cityIdB && cityB.cityId == cityIdA);
         }
     }
 }

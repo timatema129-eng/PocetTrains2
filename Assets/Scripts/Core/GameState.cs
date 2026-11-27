@@ -41,6 +41,9 @@ namespace TrainManager.Core
         /// <summary>Купленные линии (lineId).</summary>
         public List<string> ownedLineIds = new List<string>();
 
+        /// <summary>Пути и цвета купленных линий (только для тех, где что-то менялось).</summary>
+        public List<LineState> lineStates = new List<LineState>();
+
         public string NewInstanceId(string prefix)
         {
             string id = prefix + "_" + nextInstanceNumber;
@@ -68,6 +71,24 @@ namespace TrainManager.Core
             var created = new StationState { cityId = cityId };
             stations.Add(created);
             return created;
+        }
+
+        public LineState FindLineState(string lineId)
+        {
+            foreach (LineState ls in lineStates)
+                if (ls != null && ls.lineId == lineId) return ls;
+            return null;
+        }
+
+        public LineState GetOrCreateLineState(string lineId)
+        {
+            LineState ls = FindLineState(lineId);
+            if (ls == null)
+            {
+                ls = new LineState { lineId = lineId };
+                lineStates.Add(ls);
+            }
+            return ls;
         }
 
         public TrainInstance FindTrain(string instanceId)
