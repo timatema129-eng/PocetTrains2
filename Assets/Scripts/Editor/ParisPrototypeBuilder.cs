@@ -55,7 +55,10 @@ namespace TrainManager.EditorTools
             TrainData standard = LoadOrCreate<TrainData>(DataRoot + "/Trains/Train_Standard.asset", t =>
             {
                 t.trainId = "train_standard"; t.displayName = "Стандарт"; t.rarity = TrainRarity.Common;
-                t.baseSpeed = 50f; t.maxWagons = 8; t.maxFuel = 25; t.maxFuelWagons = 1; t.partsRequiredForAssembly = 3;
+                t.baseSpeed = 50f; t.maxWagons = 8; t.maxFuel = 25; t.partsRequiredForAssembly = 3;
+                // Двигатели и топливные вагоны: структура утверждена, числа — рабочие (Артем уточнит)
+                t.mainEngines = 1; t.maxExtraEngines = 1; t.wagonsPerExtraEngine = 2;
+                t.maxFuelWagons = 1; t.fuelPerFuelWagon = 15;
             });
             AddUnique(database.trains, standard);
 
@@ -65,6 +68,18 @@ namespace TrainManager.EditorTools
                 w.wagonTypeId = "cargo"; w.displayName = "Грузовой"; w.kind = WagonKind.Cargo;
             });
             AddUnique(database.wagons, cargo);
+            WagonData fuelWagon = LoadOrCreate<WagonData>(DataRoot + "/Wagons/Wagon_Fuel.asset", w =>
+            {
+                w.wagonTypeId = "fuel"; w.displayName = "Топливный вагон"; w.kind = WagonKind.Fuel;
+                w.fixedPriceCoins = 150; w.color = new Color(0.9f, 0.6f, 0.1f);
+            });
+            AddUnique(database.wagons, fuelWagon);
+            WagonData engineWagon = LoadOrCreate<WagonData>(DataRoot + "/Wagons/Wagon_Engine.asset", w =>
+            {
+                w.wagonTypeId = "engine"; w.displayName = "Вагон-двигатель"; w.kind = WagonKind.Engine;
+                w.fixedPriceCoins = 300; w.color = new Color(0.3f, 0.3f, 0.35f);
+            });
+            AddUnique(database.wagons, engineWagon);
 
             CityData paris = database.GetCity("paris");
             if (paris == null)
@@ -415,6 +430,11 @@ namespace TrainManager.EditorTools
             Place((RectTransform)expand.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-12f, -138f), new Vector2(340f, 56f));
             TMP_Text expandLabel = expand.GetComponentInChildren<TMP_Text>();
 
+            // Заправка
+            Button refuel = CreateSmallButton("RefuelButton", go.transform, "", 22);
+            Place((RectTransform)refuel.transform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -206f), new Vector2(-24f, 56f));
+            TMP_Text refuelLabel = refuel.GetComponentInChildren<TMP_Text>();
+
             // Прокручиваемый список
             var viewportGo = new GameObject("ListViewport", typeof(RectTransform));
             viewportGo.transform.SetParent(go.transform, false);
@@ -422,7 +442,7 @@ namespace TrainManager.EditorTools
             viewport.anchorMin = Vector2.zero;
             viewport.anchorMax = Vector2.one;
             viewport.offsetMin = new Vector2(12f, 12f);
-            viewport.offsetMax = new Vector2(-12f, -206f);
+            viewport.offsetMax = new Vector2(-12f, -274f);
             Image viewportImage = viewportGo.AddComponent<Image>();
             viewportImage.color = new Color(1f, 1f, 1f, 0.03f);
             viewportGo.AddComponent<RectMask2D>();
@@ -493,6 +513,8 @@ namespace TrainManager.EditorTools
             window.routeButton = route;
             window.expandButton = expand;
             window.expandLabel = expandLabel;
+            window.refuelButton = refuel;
+            window.refuelLabel = refuelLabel;
             window.listContainer = content;
             window.rowTemplate = row;
             go.SetActive(false);

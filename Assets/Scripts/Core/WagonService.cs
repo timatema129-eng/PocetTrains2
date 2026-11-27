@@ -34,14 +34,17 @@ namespace TrainManager.Core
         private readonly WalletService wallet;
         private readonly GameEvents events;
         private readonly IGameClock clock;
+        private readonly FuelService fuel;
 
-        public WagonService(GameState state, GameDatabase db, WalletService wallet, GameEvents events, IGameClock clock)
+        public WagonService(GameState state, GameDatabase db, WalletService wallet, GameEvents events, IGameClock clock,
+            FuelService fuel)
         {
             this.state = state;
             this.db = db;
             this.wallet = wallet;
             this.events = events;
             this.clock = clock;
+            this.fuel = fuel;
 
             events.TrainReachedStop += OnTrainReachedStop;
         }
@@ -75,11 +78,54 @@ namespace TrainManager.Core
         /// <summary>Сколько мест в составе занято (каждый вагон — 1 место, включая топливные и двигатели).</summary>
         public int GetTrainUsedSlots(TrainInstance train) => train != null ? train.wagonIds.Count : 0;
 
-        /// <summary>Сколько вагонов поезд может тянуть. Этап 5: + дополнительные двигатели.</summary>
+        /// <summary>
+        /// Сколько вагонов поезд может тянуть: maxWagons модели + вагоны-двигатели × wagonsPerExtraEngine.
+        /// Сам вагон-двигатель тоже занимает 1 место.
+        /// </summary>
         public int GetTrainCapacity(TrainInstance train)
         {
             TrainData model = train != null ? db.GetTrain(train.modelId) : null;
-            return model != null ? model.maxWagons : 0;
+            if (model == null) return 0;
+            return model.maxWagons + fuel.CountWagons(train, WagonKind.Engine) * model.wagonsPerExtraEngine;
+        }
+
+        /// <summary>Тип вагона (грузовой / топливный / двигатель).</summary>
+        public WagonData GetWagonType(WagonInstance wagon) => wagon != null ? db.GetWagonType(wagon.wagonTypeId) : null;
+
+        /// <summary>
+        /// Можно ли прицепить ещё один вагон такого типа: есть место в составе и не превышен лимит модели
+        /// по топливным вагонам и двигателям. Поезд должен стоять в городе cityId.
+        /// </summary>
+        public bool CanTrainTake(TrainInstance train, WagonData type, string cityId, out string reason)
+        {
+            if (train == null || train.IsMoving || train.currentCityId != cityId)
+            {
+                reason = "поезд не стоит в этом городе";
+                return false;
+            }
+            if (GetTrainUsedSlots(train) >= GetTrainCapacity(train))
+            {
+                reason = "состав полон";
+                return false;
+            }
+
+            TrainData model = db.GetTrain(train.modelId);
+            if (type != null && model != null)
+            {
+                if (type.kind == WagonKind.Fuel && fuel.CountWagons(train, WagonKind.Fuel) >= model.maxFuelWagons)
+                {
+                    reason = $"у этой модели максимум {model.maxFuelWagons} топливных вагонов";
+                    return false;
+                }
+                if (type.kind == WagonKind.Engine && fuel.CountWagons(train, WagonKind.Engine) >= model.maxExtraEngines)
+                {
+                    reason = $"у этой модели максимум {model.maxExtraEngines} дополнительных двигателей";
+                    return false;
+                }
+            }
+
+            reason = null;
+            return true;
         }
 
         public int GetStationCapacity(string cityId)
@@ -360,10 +406,88 @@ namespace TrainManager.Core
                 return false;
             }
 
+            if (!CanDetach(train, wagon, out string reason))
+            {
+                Debug.LogWarning($"[Wagon] Отцепить нельзя: {reason}");
+                return false;
+            }
+
             train.wagonIds.Remove(wagon.instanceId);
             PutOnStation(wagon, train.currentCityId);
+            fuel.ClampToCapacity(train); // если отцепили топливный вагон
             events.RaiseWagonMoved(wagon);
             return true;
+        }
+
+        /// <summary>
+        /// Вагон-двигатель нельзя отцепить, если без него вагонов окажется больше, чем поезд может тянуть.
+        /// </summary>
+        public bool CanDetach(TrainInstance train, WagonInstance wagon, out string reason)
+        {
+            WagonData type = GetWagonType(wagon);
+            TrainData model = train != null ? db.GetTrain(train.modelId) : null;
+            if (type != null && model != null && type.kind == WagonKind.Engine)
+            {
+                int capacityAfter = GetTrainCapacity(train) - model.wagonsPerExtraEngine;
+                int usedAfter = GetTrainUsedSlots(train) - 1;
+                if (usedAfter > capacityAfter)
+                {
+                    reason = "без этого двигателя поезд не утянет текущий состав — сначала отцепи другие вагоны";
+                    return false;
+                }
+            }
+            reason = null;
+            return true;
+        }
+
+        // ================= Служебные вагоны (топливный, двигатель) =================
+
+        /// <summary>Купить служебный вагон и сразу прицепить к поезду, который стоит в городе.</summary>
+        public bool CanBuyService(WagonData type, TrainInstance train, out string reason)
+        {
+            if (type == null || type.kind == WagonKind.Cargo)
+            {
+                reason = "это не служебный вагон";
+                return false;
+            }
+            if (train == null || string.IsNullOrEmpty(train.currentCityId))
+            {
+                reason = "нет поезда на станции";
+                return false;
+            }
+            if (!CanTrainTake(train, type, train.currentCityId, out reason)) return false;
+            if (!wallet.CanAfford(Currency.Coins, type.fixedPriceCoins))
+            {
+                reason = $"не хватает монет ({type.fixedPriceCoins})";
+                return false;
+            }
+            reason = null;
+            return true;
+        }
+
+        public WagonInstance TryBuyService(WagonData type, TrainInstance train)
+        {
+            if (!CanBuyService(type, train, out string reason))
+            {
+                Debug.LogWarning($"[Wagon] Покупка невозможна: {reason}");
+                return null;
+            }
+            if (!wallet.TrySpend(Currency.Coins, type.fixedPriceCoins, type.displayName)) return null;
+
+            var wagon = new WagonInstance
+            {
+                instanceId = state.NewInstanceId("wagon"),
+                wagonTypeId = type.wagonTypeId,
+                destinationCityId = "", // служебный вагон никуда не выгружается
+                originCityId = train.currentCityId
+            };
+            state.wagons.Add(wagon);
+            PutOnTrain(wagon, train);
+            fuel.UpdateOutOfFuel(train);
+
+            Debug.Log($"[Wagon] Куплен и прицеплен «{type.displayName}» ({wagon.instanceId})");
+            events.RaiseWagonBought(wagon);
+            return wagon;
         }
 
         /// <summary>Прицепить вагон со склада станции к поезду, который стоит в этом городе.</summary>
@@ -374,9 +498,9 @@ namespace TrainManager.Core
                 Debug.LogWarning("[Wagon] Вагон не на складе станции");
                 return false;
             }
-            if (!HasTrainSpace(train, wagon.locationId))
+            if (!CanTrainTake(train, GetWagonType(wagon), wagon.locationId, out string reason))
             {
-                Debug.LogWarning("[Wagon] Поезд не в этом городе, в пути или состав полон");
+                Debug.LogWarning($"[Wagon] Прицепить нельзя: {reason}");
                 return false;
             }
 
@@ -400,7 +524,7 @@ namespace TrainManager.Core
                     train.wagonIds.RemoveAt(i); // ссылка на несуществующий вагон — чистим
                     continue;
                 }
-                if (wagon.destinationCityId != city.cityId) continue;
+                if (string.IsNullOrEmpty(wagon.destinationCityId) || wagon.destinationCityId != city.cityId) continue;
 
                 train.wagonIds.RemoveAt(i);
                 state.wagons.Remove(wagon);
@@ -412,11 +536,8 @@ namespace TrainManager.Core
 
         // ================= Внутреннее =================
 
-        private bool HasTrainSpace(TrainInstance train, string cityId)
-        {
-            return train != null && !train.IsMoving && train.currentCityId == cityId &&
-                   GetTrainUsedSlots(train) < GetTrainCapacity(train);
-        }
+        private bool HasTrainSpace(TrainInstance train, string cityId) =>
+            CanTrainTake(train, db.DefaultCargoWagon, cityId, out _);
 
         private bool HasStationSpace(string cityId) => GetStationUsedSlots(cityId) < GetStationCapacity(cityId);
 

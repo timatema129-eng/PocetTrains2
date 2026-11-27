@@ -22,6 +22,7 @@ namespace TrainManager.Core
         public TrainService Trains { get; private set; }
         public WalletService Wallet { get; private set; }
         public WagonService Wagons { get; private set; }
+        public FuelService Fuel { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -47,9 +48,10 @@ namespace TrainManager.Core
             if (isNewGame)
                 State = new GameState { createdUnixMs = clock.NowUnixMs };
 
-            Trains = new TrainService(State, database, clock, Events);
             Wallet = new WalletService(State, Events);
-            Wagons = new WagonService(State, database, Wallet, Events, clock); // подписывается на прибытие: выгрузка
+            Fuel = new FuelService(State, database, Wallet);
+            Trains = new TrainService(State, database, clock, Events, Fuel);
+            Wagons = new WagonService(State, database, Wallet, Events, clock, Fuel); // подписывается на прибытие: выгрузка
 
             if (isNewGame)
                 StartNewGame();
@@ -158,7 +160,10 @@ namespace TrainManager.Core
             for (int i = State.wagons.Count - 1; i >= 0; i--)
             {
                 WagonInstance w = State.wagons[i];
-                bool broken = w == null || database.GetCity(w.destinationCityId) == null;
+                WagonData type = w != null ? database.GetWagonType(w.wagonTypeId) : null;
+                // У грузового вагона должен быть город назначения; у служебных (топливный, двигатель) его нет
+                bool broken = w == null || type == null ||
+                              (type.kind == WagonKind.Cargo && database.GetCity(w.destinationCityId) == null);
                 if (!broken && w.location == WagonLocation.Station)
                     broken = database.GetCity(w.locationId) == null;
                 if (!broken && w.location == WagonLocation.Train)
@@ -176,11 +181,14 @@ namespace TrainManager.Core
             foreach (TrainInstance t in State.trains)
             {
                 if (t.wagonIds == null) t.wagonIds = new List<string>();
+                if (float.IsNaN(t.fuel) || t.fuel < 0f) t.fuel = 0f;
                 t.wagonIds.RemoveAll(id =>
                 {
                     WagonInstance w = State.FindWagon(id);
                     return w == null || w.location != WagonLocation.Train || w.locationId != t.instanceId;
                 });
+                Fuel.ClampToCapacity(t);
+                Fuel.UpdateOutOfFuel(t);
             }
         }
 

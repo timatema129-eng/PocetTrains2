@@ -150,7 +150,12 @@ namespace TrainManager.UI
 
             float distance = root.Trains.GetTripDistance(plan);
             float seconds = root.Trains.GetTripSeconds(train, plan);
-            return $"{who}: {root.Trains.DescribeStops(ids)}\nДистанция {distance:0} км, в пути ~{seconds:0.0} с";
+            float need = root.Fuel.GetTripFuel(train, distance);
+            string fuelText = root.Fuel.HasFuelFor(train, need)
+                ? $"топливо {need:0.#} из {train.fuel:0.#}"
+                : $"<color=#ff6060>топлива не хватит: нужно {need:0.#}, есть {train.fuel:0.#}</color>";
+            return $"{who}: {root.Trains.DescribeStops(ids)}\n" +
+                   $"Дистанция {distance:0} км, в пути ~{seconds:0.0} с, {fuelText} (толчок {root.Fuel.GetPushFuel(train):0.#})";
         }
     }
 }

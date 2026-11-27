@@ -11,6 +11,12 @@ namespace TrainManager.UI
         public Button button;
         public TMP_Text buttonLabel;
 
+        /// <summary>Вагон, к которому относится строка (если есть) — для проверки доступности кнопки.</summary>
+        [System.NonSerialized] public TrainManager.Core.WagonInstance wagon;
+
+        /// <summary>Тип служебного вагона на покупку (если строка — покупка служебного вагона).</summary>
+        [System.NonSerialized] public TrainManager.Data.WagonData serviceType;
+
         public void Set(string text, string buttonText = null, UnityEngine.Events.UnityAction onClick = null)
         {
             if (label != null) label.text = text;

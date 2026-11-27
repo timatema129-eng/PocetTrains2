@@ -29,6 +29,8 @@ namespace TrainManager.Data
         [Header("Economy")]
         [Min(0f)] public float priceMultiplier = 1f;
         [Min(0f)] public float incomeMultiplier = 1f;
+        [Tooltip("Цена служебного вагона (топливный, двигатель) в монетах. У грузовых цена считается по расстоянию")]
+        [Min(0)] public int fixedPriceCoins = 100;
 
         [Header("Visual")]
         public Color color = new Color(0.55f, 0.4f, 0.3f);

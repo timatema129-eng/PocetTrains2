@@ -28,6 +28,8 @@ namespace TrainManager.UI
         public Button routeButton;
         public Button expandButton;
         public TMP_Text expandLabel;
+        public Button refuelButton;
+        public TMP_Text refuelLabel;
         public RectTransform listContainer;
         public ListRow rowTemplate;
 
@@ -47,6 +49,7 @@ namespace TrainManager.UI
             if (nextTrainButton != null) nextTrainButton.onClick.AddListener(() => SwitchTrain(+1));
             if (routeButton != null) routeButton.onClick.AddListener(StartRoute);
             if (expandButton != null) expandButton.onClick.AddListener(Expand);
+            if (refuelButton != null) refuelButton.onClick.AddListener(() => root.Fuel.TryRefuel(TrainHere()));
         }
 
         public void Open(CityData city)
@@ -143,6 +146,7 @@ namespace TrainManager.UI
             sb.Append('|').Append(root.Wagons.CurrentOfferPeriod);
             foreach (WagonOffer o in root.Wagons.GetOffers(City)) sb.Append(o.slot).Append(',');
             sb.Append('|').Append(TrainsHere().Count);
+            sb.Append('|').Append(root.Wallet.Coins); // доступность служебных вагонов зависит от денег
             return sb.ToString();
         }
 
@@ -166,9 +170,18 @@ namespace TrainManager.UI
                 foreach (WagonInstance w in cargo)
                 {
                     WagonInstance captured = w;
-                    AddRow($"  → {CityName(w.destinationCityId)} · доход {w.incomeCoins}", "Отцепить",
-                        () => root.Wagons.TryDetach(TrainHere(), captured));
+                    AddRow($"  {DescribeWagon(w)}", "Отцепить", () => root.Wagons.TryDetach(TrainHere(), captured)).wagon = w;
                 }
+            }
+
+            // ---- Служебные вагоны ----
+            if (train != null)
+            {
+                TrainData model = root.Trains.GetModel(train);
+                AddRow($"<b>Служебные вагоны</b> (топливных {root.Fuel.CountWagons(train, WagonKind.Fuel)}/{(model != null ? model.maxFuelWagons : 0)}, " +
+                       $"двигателей {root.Fuel.CountWagons(train, WagonKind.Engine)}/{(model != null ? model.maxExtraEngines : 0)})");
+                AddServiceRow(WagonKind.Fuel, train, model != null ? $"+{model.fuelPerFuelWagon} к запасу топлива" : "");
+                AddServiceRow(WagonKind.Engine, train, model != null ? $"+{model.wagonsPerExtraEngine} к лимиту вагонов, занимает 1 место" : "");
             }
 
             // ---- Склад станции ----
@@ -178,8 +191,8 @@ namespace TrainManager.UI
             foreach (WagonInstance w in stored)
             {
                 WagonInstance captured = w;
-                AddRow($"  → {CityName(w.destinationCityId)} · доход {w.incomeCoins}", train != null ? "Прицепить" : null,
-                    () => root.Wagons.TryAttach(TrainHere(), captured));
+                AddRow($"  {DescribeWagon(w)}", train != null ? "Прицепить" : null,
+                    () => root.Wagons.TryAttach(TrainHere(), captured)).wagon = w;
             }
 
             // ---- Покупка ----
@@ -212,6 +225,18 @@ namespace TrainManager.UI
             if (nextTrainButton != null) nextTrainButton.interactable = here.Count > 1;
             if (routeButton != null) routeButton.interactable = train != null;
 
+            if (refuelButton != null)
+            {
+                float amount = 0f;
+                long price = 0;
+                if (train != null) root.Fuel.GetRefuelQuote(train, out amount, out price);
+                refuelButton.interactable = train != null && amount > 0.01f && root.Wallet.Coins > 0;
+                if (refuelLabel != null)
+                    refuelLabel.text = train != null
+                        ? $"Топливо {train.fuel:0.#}/{root.Fuel.GetCapacity(train):0.#} · заправить за {price}"
+                        : "Заправка";
+            }
+
             long expandPrice = root.Wagons.GetExpandPrice(City.cityId);
             if (expandLabel != null) expandLabel.text = $"+{root.Database.stationExpandSlots} мест за {expandPrice} $";
             if (expandButton != null) expandButton.interactable = root.Wallet.CanAfford(Currency.Dollars, expandPrice);
@@ -230,14 +255,16 @@ namespace TrainManager.UI
                 if (row == null || row.button == null || !row.button.gameObject.activeSelf || row.buttonLabel == null) continue;
 
                 string b = row.buttonLabel.text;
-                if (b.StartsWith("Купить") && offerIndex < offers.Count)
+                if (row.serviceType == null && b.StartsWith("Купить") && offerIndex < offers.Count)
                     row.button.interactable = root.Wagons.CanBuy(offers[offerIndex++], train, out _);
-                else if (b == "Прицепить")
-                    row.button.interactable = train != null &&
-                                              root.Wagons.GetTrainUsedSlots(train) < root.Wagons.GetTrainCapacity(train);
-                else if (b == "Отцепить")
+                else if (b == "Прицепить" && row.wagon != null)
+                    row.button.interactable = root.Wagons.CanTrainTake(train, root.Wagons.GetWagonType(row.wagon), City.cityId, out _);
+                else if (b == "Отцепить" && row.wagon != null)
                     row.button.interactable = root.Wagons.GetStationUsedSlots(City.cityId) <
-                                              root.Wagons.GetStationCapacity(City.cityId);
+                                              root.Wagons.GetStationCapacity(City.cityId) &&
+                                              root.Wagons.CanDetach(train, row.wagon, out _);
+                else if (row.serviceType != null)
+                    row.button.interactable = root.Wagons.CanBuyService(row.serviceType, train, out _);
             }
         }
 
@@ -248,6 +275,23 @@ namespace TrainManager.UI
             row.Set(text, buttonText, onClick);
             rows.Add(row);
             return row;
+        }
+
+        private void AddServiceRow(WagonKind kind, TrainInstance train, string effect)
+        {
+            WagonData type = root.Database.FirstWagonOfKind(kind);
+            if (type == null) return;
+
+            ListRow row = AddRow($"  {type.displayName}: {effect}", $"Купить {type.fixedPriceCoins}",
+                () => root.Wagons.TryBuyService(type, TrainHere()));
+            row.serviceType = type;
+        }
+
+        private string DescribeWagon(WagonInstance w)
+        {
+            WagonData type = root.Wagons.GetWagonType(w);
+            if (type != null && type.kind != WagonKind.Cargo) return type.displayName;
+            return $"→ {CityName(w.destinationCityId)} · доход {w.incomeCoins}";
         }
 
         private string CityName(string cityId)

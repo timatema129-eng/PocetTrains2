@@ -47,6 +47,16 @@ namespace TrainManager.Data
         [Tooltip("Раз во сколько минут (реального времени) обновляется список вагонов")]
         [Min(1)] public int wagonOfferRefreshMinutes = 30;
 
+        [Header("Fuel (черновик баланса)")]
+        [Tooltip("Топлива на 1 км пути")]
+        [Min(0f)] public float fuelPerKm = 0.01f;
+        [Tooltip("Толчок: топливо на каждое НОВОЕ отправление (проезд промежуточной станции — без толчка)")]
+        [Min(0f)] public float fuelPushBase = 2f;
+        [Tooltip("Добавка к толчку за каждый грузовой вагон в составе")]
+        [Min(0f)] public float fuelPushPerWagon = 0.25f;
+        [Tooltip("Цена 1 единицы топлива при заправке, монет")]
+        [Min(0f)] public float fuelPriceCoins = 2f;
+
         [Header("Stations")]
         [Tooltip("Мест для вагонов на складе станции в начале")]
         [Min(0)] public int stationBaseSlots = 5;
@@ -105,14 +115,13 @@ namespace TrainManager.Data
         }
 
         /// <summary>Первый грузовой тип вагона — его покупает игрок, пока типов один.</summary>
-        public WagonData DefaultCargoWagon
+        public WagonData DefaultCargoWagon => FirstWagonOfKind(WagonKind.Cargo);
+
+        public WagonData FirstWagonOfKind(WagonKind kind)
         {
-            get
-            {
-                foreach (WagonData w in wagons)
-                    if (w != null && w.kind == WagonKind.Cargo) return w;
-                return null;
-            }
+            foreach (WagonData w in wagons)
+                if (w != null && w.kind == kind) return w;
+            return null;
         }
 
         /// <summary>Линия между двумя городами (направление не важно). null — линии нет.</summary>

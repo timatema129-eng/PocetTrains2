@@ -17,13 +17,15 @@ namespace TrainManager.Core
         private readonly GameDatabase db;
         private readonly IGameClock clock;
         private readonly GameEvents events;
+        private readonly FuelService fuel;
 
-        public TrainService(GameState state, GameDatabase db, IGameClock clock, GameEvents events)
+        public TrainService(GameState state, GameDatabase db, IGameClock clock, GameEvents events, FuelService fuel)
         {
             this.state = state;
             this.db = db;
             this.clock = clock;
             this.events = events;
+            this.fuel = fuel;
         }
 
         public IReadOnlyList<TrainInstance> Trains => state.trains;
@@ -131,6 +133,13 @@ namespace TrainManager.Core
                 }
             }
 
+            float need = fuel.GetTripFuel(train, GetTripDistance(stops));
+            if (!fuel.HasFuelFor(train, need))
+            {
+                reason = $"не хватает топлива: нужно {need:0.#}, есть {train.fuel:0.#}";
+                return false;
+            }
+
             reason = null;
             return true;
         }
@@ -148,6 +157,9 @@ namespace TrainManager.Core
             }
 
             TrainData model = GetModel(train);
+            float tripFuel = fuel.GetTripFuel(train, GetTripDistance(stops));
+            fuel.Consume(train, tripFuel);
+
             long now = clock.NowUnixMs;
             long t = now;
 
@@ -169,7 +181,8 @@ namespace TrainManager.Core
 
             string name = DescribeStops(trip.stopIds);
             Debug.Log($"[Train] {model.displayName} отправлен: {name}. " +
-                      $"Дистанция {GetTripDistance(stops):0}, скорость {model.baseSpeed}, в пути {(t - now) / 1000f:0.0} с");
+                      $"Дистанция {GetTripDistance(stops):0}, скорость {model.baseSpeed}, в пути {(t - now) / 1000f:0.0} с, " +
+                      $"топливо −{tripFuel:0.#} (толчок {fuel.GetPushFuel(train):0.#}), осталось {train.fuel:0.#}");
 
             events.RaiseTrainDeparted(train, trip);
             return true;
@@ -268,7 +281,12 @@ namespace TrainManager.Core
                 }
 
                 events.RaiseTrainReachedStop(train, city, isFinal);
-                if (isFinal) break;
+                if (isFinal)
+                {
+                    // После выгрузки состав легче — проверяем, хватит ли топлива хотя бы на толчок
+                    fuel.UpdateOutOfFuel(train);
+                    break;
+                }
             }
         }
 
