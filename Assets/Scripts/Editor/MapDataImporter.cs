@@ -130,6 +130,30 @@ namespace TrainManager.EditorTools
             return db;
         }
 
+        /// <summary>
+        /// Отпечаток файлов карты (MD5 всех .txt). Сборщик пишет его в сцену; если файлы карты поменялись —
+        /// перед Play сцена пересоберётся сама.
+        /// </summary>
+        public static string SourceHash()
+        {
+            if (!Directory.Exists(SourceFolder)) return "";
+            string[] files = Directory.GetFiles(SourceFolder, "*.txt");
+            Array.Sort(files, StringComparer.Ordinal);
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                foreach (string file in files)
+                {
+                    // Без \r: у Windows и Git могут быть разные концы строк, а смысл тот же
+                    byte[] name = System.Text.Encoding.UTF8.GetBytes(Path.GetFileName(file) + "\n");
+                    byte[] text = System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(file).Replace("\r", ""));
+                    md5.TransformBlock(name, 0, name.Length, null, 0);
+                    md5.TransformBlock(text, 0, text.Length, null, 0);
+                }
+                md5.TransformFinalBlock(new byte[0], 0, 0);
+                return BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant();
+            }
+        }
+
         // ================= Чтение файлов =================
 
         private class RegionRow { public string id, name, where; public long price; }

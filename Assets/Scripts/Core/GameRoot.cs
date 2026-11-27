@@ -17,6 +17,13 @@ namespace TrainManager.Core
     {
         [SerializeField] private GameDatabase database;
 
+        /// <summary>Путь базы в редакторе — запасной вариант, если ссылка в сцене потерялась.</summary>
+        public const string EditorDatabasePath = "Assets/Data/GameDatabase.asset";
+
+        // Заполняет сборщик сцены. По ним редактор перед Play понимает, что сцену надо пересобрать
+        [HideInInspector] public int sceneLayoutBuild;
+        [HideInInspector] public string mapSourceHash;
+
         public GameDatabase Database => database;
         public GameState State { get; private set; }
         public GameEvents Events { get; private set; }
@@ -43,9 +50,14 @@ namespace TrainManager.Core
 
         private void Awake()
         {
+#if UNITY_EDITOR
+            // Ссылка в сцене потерялась (например, ассеты карты пересоздались) — берём базу по пути
+            if (database == null)
+                database = UnityEditor.AssetDatabase.LoadAssetAtPath<GameDatabase>(EditorDatabasePath);
+#endif
             if (database == null)
             {
-                Debug.LogError("[Game] У GameRoot не назначен Database", this);
+                Debug.LogError("[Game] Не найдена база игры (GameDatabase). Нажми Tools → Train Manager → Build Paris Prototype Scene", this);
                 enabled = false;
                 return;
             }
@@ -101,6 +113,7 @@ namespace TrainManager.Core
                 StartNewGame();
             else
                 Repair();
+            GiveTestKit();
 
             // Достижения — после стартовой сети, чтобы стартовый регион и бесплатные линии не считались
             Achievements = new AchievementService(State, database, Events, Rewards);
@@ -142,11 +155,40 @@ namespace TrainManager.Core
 
             Network.SetupStartingNetwork();
             Trains.CreateTrain(database.startTrain, database.startCity);
-            for (int i = 0; i < database.extraStartTrainsForTesting; i++)
-                Trains.CreateTrain(database.startTrain, database.startCity);
             Wallet.Add(Currency.Coins, database.startCoins, "старт игры");
             Wallet.Add(Currency.Dollars, database.startDollars, "старт игры");
             Debug.Log("[Game] Новая игра");
+        }
+
+        /// <summary>Версия тестового набора. Увеличить — и набор выдадут ещё раз (и в старом сохранении).</summary>
+        private const int TestKitVersion = 1;
+        private const int TestWagonsPerTrain = 3;
+
+        /// <summary>
+        /// ДЛЯ ТЕСТА: всего 1 + extraStartTrainsForTesting поездов в стартовом городе и по 3 грузовых вагона
+        /// в соседние города на каждом новом поезде. Выдаётся один раз — и в новой игре, и в уже начатой.
+        /// </summary>
+        private void GiveTestKit()
+        {
+            if (State.testKitVersion >= TestKitVersion) return;
+            if (database.startTrain == null || database.startCity == null) return;
+            State.testKitVersion = TestKitVersion;
+
+            int wanted = 1 + Mathf.Max(0, database.extraStartTrainsForTesting);
+            var created = new List<TrainInstance>();
+            while (State.trains.Count < wanted)
+                created.Add(Trains.CreateTrain(database.startTrain, database.startCity));
+
+            // Вагоны — на поезда, которые стоят в стартовом городе без вагонов
+            int given = 0;
+            foreach (TrainInstance train in State.trains)
+            {
+                if (train.state == TrainState.Moving || train.state == TrainState.Stranded) continue;
+                if (train.currentCityId != database.startCity.cityId) continue;
+                if (train.wagonIds.Count > 0) continue;
+                given += Wagons.GiveTestWagons(train, database.startCity, TestWagonsPerTrain);
+            }
+            Debug.Log($"[Game] Тестовый набор: поездов добавлено {created.Count}, вагонов выдано {given}");
         }
 
         /// <summary>

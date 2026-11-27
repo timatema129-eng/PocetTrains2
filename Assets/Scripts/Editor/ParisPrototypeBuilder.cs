@@ -29,35 +29,30 @@ namespace TrainManager.EditorTools
     public static class ParisPrototypeBuilder
     {
         private const string DataRoot = "Assets/Data";
-        private const string ScenePath = "Assets/Scenes/ParisPrototype.unity";
+        public const string ScenePath = "Assets/Scenes/ParisPrototype.unity";
 
         /// <summary>
-        /// Версия сборщика сцены. Меняется, когда меняется вид сцены: после Pull Unity сама предложит пересобрать сцену
-        /// (SceneVersionCheck), а номер виден в игре в верхней панели — так видно, свежая ли сцена.
+        /// Номер версии сборщика сцены. Увеличивать, когда меняется вид сцены: перед Play редактор сравнит его
+        /// с номером в сцене и сам пересоберёт её (SceneVersionCheck). Текст LayoutVersion виден в игре сверху.
         /// </summary>
-        public const string LayoutVersion = "UI 3 (27.11)";
-        public const string LayoutVersionPref = "TrainManager.SceneLayoutVersion";
+        public const int LayoutBuild = 4;
+        public const string LayoutVersion = "UI 4 (27.11)";
 
         [MenuItem("Tools/Train Manager/Build Paris Prototype Scene")]
         public static void Build() => Build(true);
 
-        /// <summary>interactive = false — без диалогов (сборка APK в GitHub Actions).</summary>
-        public static void Build(bool interactive, bool askOverwrite = true)
+        /// <summary>
+        /// Собрать сцену заново. interactive = false — без вопросов (автосборка перед Play и сборка APK).
+        /// Возвращает false, если собрать не удалось (подробности в Console).
+        /// </summary>
+        public static bool Build(bool interactive)
         {
             if (interactive && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
-                return;
-
-            if (interactive && askOverwrite && AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null &&
-                !EditorUtility.DisplayDialog("Train Manager",
-                    "Сцена ParisPrototype уже существует. Пересоздать её?\n(Города и линии обновятся по файлу карты.)",
-                    "Пересоздать", "Отмена"))
-            {
-                return;
-            }
+                return false;
 
             // ---------- 1. Данные ----------
             GameDatabase database = MapDataImporter.Import();
-            if (database == null) return;
+            if (database == null) return false;
 
             EnsureFolder(DataRoot + "/Trains");
             EnsureFolder("Assets/Scenes");
@@ -132,7 +127,7 @@ namespace TrainManager.EditorTools
             if (paris == null)
             {
                 Debug.LogError("[Train Manager] В карте нет города paris — не с чего начать игру");
-                return;
+                return false;
             }
             if (database.startCity == null) database.startCity = paris;
             if (database.startTrain == null) database.startTrain = standard;
@@ -160,6 +155,8 @@ namespace TrainManager.EditorTools
             GameRoot root = rootGo.AddComponent<GameRoot>();
             var rootSo = new SerializedObject(root);
             rootSo.FindProperty("database").objectReferenceValue = database;
+            rootSo.FindProperty("sceneLayoutBuild").intValue = LayoutBuild;
+            rootSo.FindProperty("mapSourceHash").stringValue = MapDataImporter.SourceHash();
             rootSo.ApplyModifiedPropertiesWithoutUndo();
 
             // Canvas
@@ -294,7 +291,7 @@ namespace TrainManager.EditorTools
             statusText.text = status;
             statusText.selection = selection;
 
-            TMP_Text walletLabel = CreateText("Wallet", topBar.transform, "", 36, TextAlignmentOptions.MidlineRight);
+            TMP_Text walletLabel = CreateText("Wallet", topBar.transform, "Монеты: …    Доллары: …", 36, TextAlignmentOptions.MidlineRight);
             walletLabel.fontStyle = FontStyles.Bold;
             walletLabel.color = new Color(1f, 0.85f, 0.35f);
             RectTransform walletRect = walletLabel.rectTransform;
@@ -404,13 +401,24 @@ namespace TrainManager.EditorTools
             interaction.stationWindow = window;
 
             // ---------- 3. Сохранение ----------
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            if (!EditorSceneManager.SaveScene(scene, ScenePath))
+            {
+                Debug.LogError("[Train Manager] Не удалось сохранить сцену " + ScenePath);
+                return false;
+            }
+            // Список сцен для сборки APK. Меняем, только если сцены там ещё нет, — чтобы файл настроек не менялся каждый раз
+            bool listed = false;
+            foreach (EditorBuildSettingsScene entry in EditorBuildSettings.scenes)
+                if (entry != null && entry.path == ScenePath) listed = true;
+            if (!listed)
+                EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
 
-            EditorPrefs.SetString(LayoutVersionPref + "." + Application.dataPath, LayoutVersion);
+            // Play всегда запускает эту сцену, какая бы ни была открыта
+            EditorSceneManager.playModeStartScene = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);
             Selection.activeGameObject = rootGo;
-            Debug.Log("[Train Manager] Сцена ParisPrototype создана: " + ScenePath + ". Нажми Play.");
+            Debug.Log($"[Train Manager] Сцена ParisPrototype собрана ({LayoutVersion}): городов {database.cities.Count}, линий {database.lines.Count}. Нажми Play.");
+            return true;
         }
 
         // ================= Вспомогательное =================
