@@ -351,13 +351,34 @@ namespace TrainManager.EditorTools
             return v;
         }
 
-        public static T LoadOrCreate<T>(string path) where T : ScriptableObject
+        public static T LoadOrCreate<T>(string path) where T : ScriptableObject => LoadOrCreate<T>(path, null);
+
+        /// <summary>
+        /// Загрузить ассет или создать новый. Если файл есть, но не читается как нужный тип
+        /// (например, сломалась ссылка на скрипт), — удаляем его и создаём заново.
+        /// Созданный ассет обязательно сохранён на диск, иначе сцена потеряет на него ссылку.
+        /// </summary>
+        public static T LoadOrCreate<T>(string path, Action<T> init) where T : ScriptableObject
         {
             T asset = AssetDatabase.LoadAssetAtPath<T>(path);
-            if (asset != null) return asset;
+            if (asset != null && EditorUtility.IsPersistent(asset)) return asset;
+
+            if (File.Exists(path))
+            {
+                Debug.LogWarning($"[Map Import] Файл {path} не читается как {typeof(T).Name} — пересоздаю");
+                if (!AssetDatabase.DeleteAsset(path))
+                {
+                    File.Delete(path);
+                    if (File.Exists(path + ".meta")) File.Delete(path + ".meta");
+                    AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                }
+            }
 
             asset = ScriptableObject.CreateInstance<T>();
+            init?.Invoke(asset);
             AssetDatabase.CreateAsset(asset, path);
+            if (!EditorUtility.IsPersistent(asset))
+                Debug.LogError($"[Map Import] Не удалось сохранить {path} на диск — пришли это сообщение Claude");
             return asset;
         }
 

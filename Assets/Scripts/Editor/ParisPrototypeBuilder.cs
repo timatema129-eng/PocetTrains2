@@ -406,6 +406,7 @@ namespace TrainManager.EditorTools
                 Debug.LogError("[Train Manager] Не удалось сохранить сцену " + ScenePath);
                 return false;
             }
+            if (!CheckSavedScene(database)) return false;
             // Список сцен для сборки APK. Меняем, только если сцены там ещё нет, — чтобы файл настроек не менялся каждый раз
             bool listed = false;
             foreach (EditorBuildSettingsScene entry in EditorBuildSettings.scenes)
@@ -422,6 +423,27 @@ namespace TrainManager.EditorTools
         }
 
         // ================= Вспомогательное =================
+
+        /// <summary>
+        /// Проверка после сохранения: в файле сцены у GameRoot должна быть ссылка именно на файл базы игры.
+        /// Если нет — пишет в Console, что именно не так (это сообщение нужно прислать Claude).
+        /// </summary>
+        private static bool CheckSavedScene(GameDatabase database)
+        {
+            string dbPath = AssetDatabase.GetAssetPath(database);
+            string dbGuid = AssetDatabase.AssetPathToGUID(dbPath);
+            string text = System.IO.File.ReadAllText(ScenePath);
+            var m = System.Text.RegularExpressions.Regex.Match(text, @"database: \{fileID: (-?\d+)(?:, guid: ([0-9a-f]{32}))?");
+            string sceneRef = m.Success ? m.Value : "(нет поля database)";
+            bool ok = m.Success && m.Groups[2].Value == dbGuid && !string.IsNullOrEmpty(dbGuid);
+            if (ok) return true;
+
+            Debug.LogError("[Train Manager] ПРИШЛИ ЭТО CLAUDE: в сцене потерялась ссылка на базу игры. " +
+                           $"persistent={EditorUtility.IsPersistent(database)}, path='{dbPath}', guid='{dbGuid}', " +
+                           $"в сцене: {sceneRef}, файл есть: {System.IO.File.Exists(MapDataImporter.DatabasePath)}, " +
+                           $"тип по пути: {AssetDatabase.GetMainAssetTypeAtPath(MapDataImporter.DatabasePath)}");
+            return false;
+        }
 
         [MenuItem("Tools/Train Manager/Delete Save")]
         public static void DeleteSave()
@@ -458,16 +480,8 @@ namespace TrainManager.EditorTools
                 list.Add(item);
         }
 
-        private static T LoadOrCreate<T>(string path, Action<T> init) where T : ScriptableObject
-        {
-            T asset = AssetDatabase.LoadAssetAtPath<T>(path);
-            if (asset != null) return asset;
-
-            asset = ScriptableObject.CreateInstance<T>();
-            init(asset);
-            AssetDatabase.CreateAsset(asset, path);
-            return asset;
-        }
+        private static T LoadOrCreate<T>(string path, Action<T> init) where T : ScriptableObject =>
+            MapDataImporter.LoadOrCreate(path, init);
 
         private static void EnsureFolder(string path)
         {
