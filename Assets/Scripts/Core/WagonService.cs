@@ -50,6 +50,7 @@ namespace TrainManager.Core
 
             events.TrainReachedStop += OnTrainReachedStop;
             events.RegionUnlocked += OnRegionUnlocked;
+            events.LineBought += line => nearestCache.Clear(); // новая дорога — новые города, куда можно везти
         }
 
         // ================= Где какие вагоны =================
@@ -228,14 +229,31 @@ namespace TrainManager.Core
         /// <summary>Открыт новый регион — ближайшие доступные города надо пересчитать.</summary>
         private void OnRegionUnlocked(RegionData region) => nearestCache.Clear();
 
-        /// <summary>Ближайшие города (wagonOfferPool штук), посчитано один раз на город.</summary>
+        /// <summary>
+        /// Города, куда вагон реально можно довезти: до них есть путь по КУПЛЕННЫМ дорогам.
+        /// Из них берутся ближайшие (wagonOfferPool штук). Пересчитывается после покупки дороги.
+        /// </summary>
         private List<CityData> GetNearestCities(CityData city)
         {
             if (nearestCache.TryGetValue(city, out List<CityData> cached)) return cached;
 
+            // Обход сети купленных дорог от города
             var pool = new List<CityData>();
-            foreach (CityData c in db.cities)
-                if (c != null && c != city && network.IsCityAccessible(c)) pool.Add(c);
+            var visited = new HashSet<CityData> { city };
+            var queue = new Queue<CityData>();
+            queue.Enqueue(city);
+            while (queue.Count > 0)
+            {
+                CityData current = queue.Dequeue();
+                foreach (RailwayLineData line in db.GetLines(current))
+                {
+                    if (!network.IsLineOwned(line)) continue;
+                    CityData next = line.cityA == current ? line.cityB : line.cityA;
+                    if (next == null || !visited.Add(next)) continue;
+                    queue.Enqueue(next);
+                    if (network.IsCityAccessible(next)) pool.Add(next);
+                }
+            }
             pool.Sort((a, b) => Geo.DistanceKm(city, a).CompareTo(Geo.DistanceKm(city, b)));
             if (pool.Count > db.wagonOfferPool) pool.RemoveRange(db.wagonOfferPool, pool.Count - db.wagonOfferPool);
 
@@ -577,6 +595,48 @@ namespace TrainManager.Core
         }
 
         // ================= Внутреннее =================
+
+        // ================= Для теста =================
+
+        /// <summary>
+        /// ДЛЯ ТЕСТА: бесплатно прицепить к поезду до count грузовых вагонов в соседние города
+        /// (по купленным линиям из города, где стоит поезд). Возвращает, сколько вагонов прицеплено.
+        /// </summary>
+        public int GiveTestWagons(TrainInstance train, CityData city, int count)
+        {
+            WagonData cargo = db.DefaultCargoWagon;
+            if (train == null || city == null || cargo == null || count <= 0) return 0;
+
+            var targets = new List<CityData>();
+            foreach (RailwayLineData line in db.GetLines(city))
+            {
+                if (!network.IsLineOwned(line)) continue;
+                CityData other = line.cityA == city ? line.cityB : line.cityA;
+                if (other != null && !targets.Contains(other)) targets.Add(other);
+            }
+            if (targets.Count == 0) return 0;
+
+            int given = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (!CanTrainTake(train, cargo, city.cityId, out _)) break;
+                CityData destination = targets[(state.trains.IndexOf(train) + i) % targets.Count];
+                var wagon = new WagonInstance
+                {
+                    instanceId = state.NewInstanceId("wagon"),
+                    wagonTypeId = cargo.wagonTypeId,
+                    destinationCityId = destination.cityId,
+                    originCityId = city.cityId,
+                    incomeCoins = GetIncome(cargo, city, destination),
+                    paidCoins = 0
+                };
+                state.wagons.Add(wagon);
+                PutOnTrain(wagon, train);
+                given++;
+            }
+            if (given > 0) fuel.UpdateOutOfFuel(train);
+            return given;
+        }
 
         private bool HasTrainSpace(TrainInstance train, string cityId) =>
             CanTrainTake(train, db.DefaultCargoWagon, cityId, out _);

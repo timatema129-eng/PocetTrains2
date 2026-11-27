@@ -63,6 +63,9 @@ namespace TrainManager.Core
         /// <summary>Реклама: сколько просмотрено сегодня.</summary>
         public AdState ads = new AdState();
 
+        /// <summary>ДЛЯ ТЕСТА: какая версия стартового тестового набора (поезда + вагоны) уже выдана.</summary>
+        public int testKitVersion;
+
         public string NewInstanceId(string prefix)
         {
             string id = prefix + "_" + nextInstanceNumber;

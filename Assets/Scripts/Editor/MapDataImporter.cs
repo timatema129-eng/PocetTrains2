@@ -130,6 +130,30 @@ namespace TrainManager.EditorTools
             return db;
         }
 
+        /// <summary>
+        /// Отпечаток файлов карты (MD5 всех .txt). Сборщик пишет его в сцену; если файлы карты поменялись —
+        /// перед Play сцена пересоберётся сама.
+        /// </summary>
+        public static string SourceHash()
+        {
+            if (!Directory.Exists(SourceFolder)) return "";
+            string[] files = Directory.GetFiles(SourceFolder, "*.txt");
+            Array.Sort(files, StringComparer.Ordinal);
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                foreach (string file in files)
+                {
+                    // Без \r: у Windows и Git могут быть разные концы строк, а смысл тот же
+                    byte[] name = System.Text.Encoding.UTF8.GetBytes(Path.GetFileName(file) + "\n");
+                    byte[] text = System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(file).Replace("\r", ""));
+                    md5.TransformBlock(name, 0, name.Length, null, 0);
+                    md5.TransformBlock(text, 0, text.Length, null, 0);
+                }
+                md5.TransformFinalBlock(new byte[0], 0, 0);
+                return BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant();
+            }
+        }
+
         // ================= Чтение файлов =================
 
         private class RegionRow { public string id, name, where; public long price; }
@@ -327,13 +351,34 @@ namespace TrainManager.EditorTools
             return v;
         }
 
-        public static T LoadOrCreate<T>(string path) where T : ScriptableObject
+        public static T LoadOrCreate<T>(string path) where T : ScriptableObject => LoadOrCreate<T>(path, null);
+
+        /// <summary>
+        /// Загрузить ассет или создать новый. Если файл есть, но не читается как нужный тип
+        /// (например, сломалась ссылка на скрипт), — удаляем его и создаём заново.
+        /// Созданный ассет обязательно сохранён на диск, иначе сцена потеряет на него ссылку.
+        /// </summary>
+        public static T LoadOrCreate<T>(string path, Action<T> init) where T : ScriptableObject
         {
             T asset = AssetDatabase.LoadAssetAtPath<T>(path);
-            if (asset != null) return asset;
+            if (asset != null && EditorUtility.IsPersistent(asset)) return asset;
+
+            if (File.Exists(path))
+            {
+                Debug.LogWarning($"[Map Import] Файл {path} не читается как {typeof(T).Name} — пересоздаю");
+                if (!AssetDatabase.DeleteAsset(path))
+                {
+                    File.Delete(path);
+                    if (File.Exists(path + ".meta")) File.Delete(path + ".meta");
+                    AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                }
+            }
 
             asset = ScriptableObject.CreateInstance<T>();
+            init?.Invoke(asset);
             AssetDatabase.CreateAsset(asset, path);
+            if (!EditorUtility.IsPersistent(asset))
+                Debug.LogError($"[Map Import] Не удалось сохранить {path} на диск — пришли это сообщение Claude");
             return asset;
         }
 

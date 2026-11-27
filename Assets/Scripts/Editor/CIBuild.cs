@@ -20,7 +20,12 @@ namespace TrainManager.EditorTools
 
         public static void BuildAndroid()
         {
-            ParisPrototypeBuilder.Build(false);
+            if (!ParisPrototypeBuilder.Build(false))
+            {
+                Debug.LogError("[Train Manager] Сцена не собралась — APK не собираем");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                return;
+            }
 
             PlayerSettings.productName = "Train Manager";
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.trainmanager.game");

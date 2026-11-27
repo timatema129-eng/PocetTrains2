@@ -16,7 +16,10 @@ namespace TrainManager.Map
         public const float FullSizeZoom = 0.6f;
 
         /// <summary>Во сколько раз точка/надпись на экране меньше обычного при масштабе карты zoom.</summary>
-        public static float ScreenFactor(float zoom) => Mathf.Min(1f, zoom / FullSizeZoom);
+        public static float ScreenFactor(float zoom) => Mathf.Clamp(zoom / FullSizeZoom, MinScreenFactor, 1f);
+
+        /// <summary>Сильнее точки не уменьшаются — иначе при отдалении города пропадают с глаз.</summary>
+        public const float MinScreenFactor = 0.55f;
 
         /// <summary>
         /// Сдвиг центра надписи от центра точки в пикселях экрана. side: 0 снизу, 1 сверху, 2 справа, 3 слева.
