@@ -21,7 +21,7 @@ namespace TrainManager.Core
         /// <summary>Город, где стоит поезд. Пока поезд в пути — пустая строка.</summary>
         public string currentCityId;
 
-        /// <summary>Текущая поездка. Если поезд стоит — routeId пустой.</summary>
+        /// <summary>Текущая поездка. Если поезд стоит — список городов пустой.</summary>
         public TripState trip = new TripState();
 
         // ---- Задел на следующие этапы ----
@@ -38,6 +38,7 @@ namespace TrainManager.Core
     [Serializable]
     public class TripState
     {
+        /// <summary>ID ассета маршрута, если поезд отправлен по готовому маршруту. Иначе пусто.</summary>
         public string routeId;
 
         /// <summary>Города маршрута по порядку (cityId).</summary>
@@ -51,8 +52,7 @@ namespace TrainManager.Core
         /// <summary>Индекс последнего города, до которого поезд уже доехал (0 — только отправился).</summary>
         public int reachedStopIndex;
 
-        public bool IsActive => !string.IsNullOrEmpty(routeId) &&
-                                stopIds != null && stopTimesUnixMs != null &&
+        public bool IsActive => stopIds != null && stopTimesUnixMs != null &&
                                 stopIds.Count >= 2 && stopIds.Count == stopTimesUnixMs.Count;
 
         public int LastIndex => stopIds.Count - 1;

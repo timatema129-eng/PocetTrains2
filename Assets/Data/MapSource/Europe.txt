@@ -1,0 +1,76 @@
+# Карта региона «Европа» — источник данных для Tools → Train Manager → Import Map Data.
+# Своя сеть Train Manager: реальные города и реальная география, связи подобраны вручную.
+#
+# Формат (разделитель ;, пробелы по краям игнорируются, # — комментарий):
+#   region; id; Название
+#   map; центр_широта; центр_долгота; масштаб; сдвиг_X; сдвиг_Y   — как разместить регион на экране
+#   city; id; Название; широта; долгота
+#   line; город_A; город_B                — дистанция считается сама по прямой (км, округление до 10)
+#   line; город_A; город_B; 500           — дистанция задана вручную
+#
+# Дистанция = километры. Время в пути = дистанция / скорость поезда × secondsPerTimeUnit (GameDatabase).
+
+region; europe; Европа
+map; 49.3; 14.2; 38; 0; 80
+
+# ---------- Города ----------
+city; london;     Лондон;      51.507; -0.128
+city; paris;      Париж;       48.857;  2.352
+city; brussels;   Брюссель;    50.847;  4.357
+city; amsterdam;  Амстердам;   52.370;  4.895
+city; frankfurt;  Франкфурт;   50.110;  8.682
+city; hamburg;    Гамбург;     53.551;  9.994
+city; berlin;     Берлин;      52.520; 13.405
+city; copenhagen; Копенгаген;  55.676; 12.568
+city; oslo;       Осло;        59.914; 10.752
+city; stockholm;  Стокгольм;   59.329; 18.069
+city; munich;     Мюнхен;      48.137; 11.575
+city; zurich;     Цюрих;       47.377;  8.541
+city; lyon;       Лион;        45.764;  4.836
+city; milan;      Милан;       45.464;  9.190
+city; rome;       Рим;         41.903; 12.496
+city; barcelona;  Барселона;   41.385;  2.173
+city; madrid;     Мадрид;      40.417; -3.704
+city; lisbon;     Лиссабон;    38.722; -9.139
+city; prague;     Прага;       50.076; 14.438
+city; vienna;     Вена;        48.208; 16.374
+city; budapest;   Будапешт;    47.498; 19.040
+city; warsaw;     Варшава;     52.230; 21.012
+city; minsk;      Минск;       53.905; 27.561
+city; moscow;     Москва;      55.756; 37.617
+
+# ---------- Линии ----------
+# Запад
+line; london; paris
+line; london; brussels
+line; paris; brussels
+line; paris; lyon
+line; brussels; amsterdam
+line; brussels; frankfurt
+# Иберия
+line; lyon; barcelona
+line; barcelona; madrid
+line; madrid; lisbon
+# Альпы и Италия
+line; lyon; milan
+line; zurich; milan
+line; frankfurt; zurich
+line; zurich; munich
+line; milan; rome
+# Германия и север
+line; amsterdam; hamburg
+line; amsterdam; berlin
+line; hamburg; berlin
+line; frankfurt; berlin
+line; frankfurt; munich
+line; hamburg; copenhagen
+line; copenhagen; stockholm
+line; stockholm; oslo
+# Центр и восток
+line; berlin; prague
+line; munich; vienna
+line; prague; vienna
+line; vienna; budapest
+line; berlin; warsaw
+line; warsaw; minsk
+line; minsk; moscow

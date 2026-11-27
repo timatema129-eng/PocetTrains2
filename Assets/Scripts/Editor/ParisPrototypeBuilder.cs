@@ -20,9 +20,10 @@ namespace TrainManager.EditorTools
 {
     /// <summary>
     /// Меню Tools → Train Manager → Build Paris Prototype Scene.
-    /// Одним нажатием создаёт данные (регион, города, линии, маршруты, поезд, GameDatabase)
-    /// и сцену ParisPrototype со всеми объектами и уже назначенными ссылками.
-    /// Уже существующие файлы данных НЕ перезаписываются — твои правки в них сохранятся.
+    /// Одним нажатием импортирует карту (Assets/Data/MapSource/*.txt → города и линии),
+    /// создаёт поезд и GameDatabase и собирает сцену ParisPrototype со всеми ссылками.
+    /// Города и линии обновляются по текстовому файлу карты (правь файл, а не ассеты).
+    /// Ассет поезда, если уже есть, не перезаписывается.
     /// Tools → Train Manager → Delete Save удаляет сохранение (игра начнётся заново).
     /// </summary>
     public static class ParisPrototypeBuilder
@@ -38,68 +39,36 @@ namespace TrainManager.EditorTools
 
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null &&
                 !EditorUtility.DisplayDialog("Train Manager",
-                    "Сцена ParisPrototype уже существует. Пересоздать её?\n(Файлы данных в Assets/Data не трогаются.)",
+                    "Сцена ParisPrototype уже существует. Пересоздать её?\n(Города и линии обновятся по файлу карты.)",
                     "Пересоздать", "Отмена"))
             {
                 return;
             }
 
             // ---------- 1. Данные ----------
-            EnsureFolder(DataRoot + "/Regions");
-            EnsureFolder(DataRoot + "/Cities");
-            EnsureFolder(DataRoot + "/Lines");
-            EnsureFolder(DataRoot + "/Routes");
+            GameDatabase database = MapDataImporter.Import();
+            if (database == null) return;
+
             EnsureFolder(DataRoot + "/Trains");
             EnsureFolder("Assets/Scenes");
-
-            RegionData europe = LoadOrCreate<RegionData>(DataRoot + "/Regions/Region_Europe.asset", r =>
-            {
-                r.regionId = "europe"; r.displayName = "Европа";
-            });
-
-            CityData paris = CreateCity("City_Paris", "paris", "Париж", new Vector2(0f, -150f), europe);
-            CityData london = CreateCity("City_London", "london", "Лондон", new Vector2(-500f, 250f), europe);
-            CityData berlin = CreateCity("City_Berlin", "berlin", "Берлин", new Vector2(500f, 250f), europe);
-
-            RailwayLineData lineParisLondon = CreateLineData("Line_Paris_London", "paris_london", europe,
-                paris, london, 300f, new Color(0.95f, 0.75f, 0.25f));
-            RailwayLineData lineParisBerlin = CreateLineData("Line_Paris_Berlin", "paris_berlin", europe,
-                paris, berlin, 600f, new Color(0.35f, 0.85f, 0.55f));
-
-            var routes = new List<RouteData>
-            {
-                CreateRoute("Route_Paris_London", "paris_london", paris, london),
-                CreateRoute("Route_Paris_Berlin", "paris_berlin", paris, berlin),
-                CreateRoute("Route_London_Paris", "london_paris", london, paris),
-                CreateRoute("Route_Berlin_Paris", "berlin_paris", berlin, paris),
-                // Сквозные маршруты через Париж — проверка цепочки городов
-                CreateRoute("Route_London_Paris_Berlin", "london_paris_berlin", london, paris, berlin),
-                CreateRoute("Route_Berlin_Paris_London", "berlin_paris_london", berlin, paris, london)
-            };
 
             TrainData standard = LoadOrCreate<TrainData>(DataRoot + "/Trains/Train_Standard.asset", t =>
             {
                 t.trainId = "train_standard"; t.displayName = "Стандарт"; t.rarity = TrainRarity.Common;
                 t.baseSpeed = 50f; t.maxWagons = 8; t.maxFuel = 25; t.maxFuelWagons = 1; t.partsRequiredForAssembly = 3;
             });
-
-            GameDatabase database = LoadOrCreate<GameDatabase>(DataRoot + "/GameDatabase.asset", d =>
-            {
-                d.secondsPerTimeUnit = 1f;
-            });
-            AddUnique(database.regions, europe);
-            AddUnique(database.cities, paris);
-            AddUnique(database.cities, london);
-            AddUnique(database.cities, berlin);
-            AddUnique(database.lines, lineParisLondon);
-            AddUnique(database.lines, lineParisBerlin);
-            foreach (RouteData route in routes) AddUnique(database.routes, route);
             AddUnique(database.trains, standard);
+
+            CityData paris = database.GetCity("paris");
+            if (paris == null)
+            {
+                Debug.LogError("[Train Manager] В карте нет города paris — не с чего начать игру");
+                return;
+            }
             if (database.startCity == null) database.startCity = paris;
             if (database.startTrain == null) database.startTrain = standard;
             database.ClearCache();
             EditorUtility.SetDirty(database);
-
             AssetDatabase.SaveAssets();
 
             // ---------- 2. Сцена ----------
@@ -145,14 +114,13 @@ namespace TrainManager.EditorTools
             foreach (RailwayLineData line in database.lines)
                 CreateLine(line, mapGo.transform);
 
-            CreateStation(paris, mapGo.transform);
-            CreateStation(london, mapGo.transform);
-            CreateStation(berlin, mapGo.transform);
+            foreach (CityData city in database.cities)
+                CreateStation(city, mapGo.transform);
 
             // Картинка поезда на карте (последней — чтобы рисовалась поверх станций)
             Image trainImage = CreateImage("Train_Standard (View)", mapGo.transform, new Color(0.85f, 0.2f, 0.2f));
-            trainImage.rectTransform.sizeDelta = new Vector2(70f, 36f);
-            trainImage.rectTransform.anchoredPosition = paris.mapPosition;
+            trainImage.rectTransform.sizeDelta = new Vector2(44f, 22f);
+            trainImage.rectTransform.anchoredPosition = database.startCity.mapPosition;
             trainImage.raycastTarget = false;
             TrainView trainView = trainImage.gameObject.AddComponent<TrainView>();
             trainView.root = root;
@@ -160,35 +128,44 @@ namespace TrainManager.EditorTools
             trainView.trainIndex = 0;
 
             // Статус
-            TMP_Text status = CreateText("TrainStatus", canvasT, "", 32, TextAlignmentOptions.TopLeft);
+            TMP_Text status = CreateText("TrainStatus", canvasT, "", 26, TextAlignmentOptions.TopLeft);
             RectTransform statusRect = status.rectTransform;
             statusRect.anchorMin = new Vector2(0f, 1f);
             statusRect.anchorMax = new Vector2(0f, 1f);
             statusRect.pivot = new Vector2(0f, 1f);
             statusRect.anchoredPosition = new Vector2(40f, -30f);
-            statusRect.sizeDelta = new Vector2(1200f, 200f);
+            statusRect.sizeDelta = new Vector2(700f, 180f);
             TrainStatusText statusText = status.gameObject.AddComponent<TrainStatusText>();
             statusText.root = root;
             statusText.text = status;
 
-            // Кнопки маршрутов
-            var panelGo = new GameObject("RouteButtons", typeof(RectTransform));
+            // Составление маршрута: текст + кнопки «Отправить» и «Сбросить»
+            var panelGo = new GameObject("RoutePlanner", typeof(RectTransform));
             panelGo.transform.SetParent(canvasT, false);
             var panelRect = (RectTransform)panelGo.transform;
             panelRect.anchorMin = new Vector2(0.5f, 0f);
             panelRect.anchorMax = new Vector2(0.5f, 0f);
             panelRect.pivot = new Vector2(0.5f, 0f);
-            panelRect.anchoredPosition = new Vector2(0f, 40f);
-            panelRect.sizeDelta = new Vector2(1560f, 230f);
-            var grid = panelGo.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(500f, 100f);
-            grid.spacing = new Vector2(30f, 30f);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 3;
-            grid.childAlignment = TextAnchor.LowerCenter;
+            panelRect.anchoredPosition = new Vector2(0f, 20f);
+            panelRect.sizeDelta = new Vector2(1700f, 100f);
 
-            foreach (RouteData route in routes)
-                CreateRouteButton(panelGo.transform, root, route);
+            TMP_Text planText = CreateText("PlanText", panelGo.transform, "", 26, TextAlignmentOptions.MidlineLeft);
+            RectTransform planRect = planText.rectTransform;
+            planRect.anchorMin = new Vector2(0f, 0f);
+            planRect.anchorMax = new Vector2(1f, 1f);
+            planRect.offsetMin = Vector2.zero;
+            planRect.offsetMax = new Vector2(-560f, 0f);
+
+            Button sendButton = CreateButton("SendButton", panelGo.transform, "Отправить", new Vector2(-280f, 0f));
+            Button clearButton = CreateButton("ClearButton", panelGo.transform, "Сбросить", new Vector2(0f, 0f));
+
+            RoutePlanner planner = panelGo.AddComponent<RoutePlanner>();
+            planner.root = root;
+            planner.map = map;
+            planner.planText = planText;
+            planner.sendButton = sendButton;
+            planner.clearButton = clearButton;
+            planner.trainIndex = 0;
 
             // ---------- 3. Сохранение ----------
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -215,39 +192,6 @@ namespace TrainManager.EditorTools
 
             SaveService.Delete();
             Debug.Log("[Train Manager] Сохранение удалено: " + SaveService.SavePath);
-        }
-
-        private static CityData CreateCity(string file, string id, string displayName, Vector2 mapPosition, RegionData region)
-        {
-            return LoadOrCreate<CityData>(DataRoot + "/Cities/" + file + ".asset", c =>
-            {
-                c.cityId = id; c.displayName = displayName; c.mapPosition = mapPosition; c.region = region;
-            });
-        }
-
-        private static RailwayLineData CreateLineData(string file, string id, RegionData region,
-            CityData a, CityData b, float distance, Color color)
-        {
-            return LoadOrCreate<RailwayLineData>(DataRoot + "/Lines/" + file + ".asset", l =>
-            {
-                l.lineId = id; l.region = region; l.cityA = a; l.cityB = b; l.distance = distance; l.color = color;
-            });
-        }
-
-        private static RouteData CreateRoute(string file, string id, params CityData[] stops)
-        {
-            RouteData route = LoadOrCreate<RouteData>(DataRoot + "/Routes/" + file + ".asset", r =>
-            {
-                r.routeId = id; r.stops = new List<CityData>(stops);
-            });
-
-            // Ассет от старой версии (откуда/куда без списка остановок) — заполняем остановки.
-            if (route.StopCount == 0)
-            {
-                route.stops = new List<CityData>(stops);
-                EditorUtility.SetDirty(route);
-            }
-            return route;
         }
 
         private static void AddUnique<T>(List<T> list, T item) where T : UnityEngine.Object
@@ -322,18 +266,21 @@ namespace TrainManager.EditorTools
 
         private static void CreateStation(CityData city, Transform map)
         {
-            Image dot = CreateImage("Station_" + city.cityId, map, new Color(0.25f, 0.55f, 0.95f));
-            dot.rectTransform.sizeDelta = new Vector2(60f, 60f);
+            Image dot = CreateImage("Station_" + city.cityId, map, StationView.NormalColor);
+            dot.rectTransform.sizeDelta = new Vector2(26f, 26f);
             dot.rectTransform.anchoredPosition = city.mapPosition;
-            dot.raycastTarget = false;
+            Button button = dot.gameObject.AddComponent<Button>();
+            button.targetGraphic = dot;
+            button.transition = Selectable.Transition.None; // цвет меняет RoutePlanner (подсветка)
 
-            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 36, TextAlignmentOptions.Center);
-            label.rectTransform.anchoredPosition = new Vector2(0f, -65f);
-            label.rectTransform.sizeDelta = new Vector2(300f, 50f);
+            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 22, TextAlignmentOptions.Center);
+            label.rectTransform.anchoredPosition = new Vector2(0f, -26f);
+            label.rectTransform.sizeDelta = new Vector2(220f, 30f);
 
             StationView view = dot.gameObject.AddComponent<StationView>();
             view.city = city;
             view.label = label;
+            view.dot = dot;
         }
 
         private static void CreateLine(RailwayLineData data, Transform map)
@@ -346,26 +293,29 @@ namespace TrainManager.EditorTools
             line.raycastTarget = false;
             RectTransform rect = line.rectTransform;
             Vector2 delta = b - a;
-            rect.sizeDelta = new Vector2(delta.magnitude, 8f);
+            rect.sizeDelta = new Vector2(delta.magnitude, 5f);
             rect.anchoredPosition = (a + b) * 0.5f;
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
-        private static void CreateRouteButton(Transform parent, GameRoot root, RouteData route)
+        /// <summary>Кнопка справа внизу панели. x — сдвиг от правого края.</summary>
+        private static Button CreateButton(string name, Transform parent, string text, Vector2 offsetFromRight)
         {
-            Image image = CreateImage("Button_" + route.routeId, parent, new Color(0.95f, 0.95f, 0.95f));
+            Image image = CreateImage(name, parent, new Color(0.95f, 0.95f, 0.95f));
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = new Vector2(1f, 0.5f);
+            rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.pivot = new Vector2(1f, 0.5f);
+            rect.sizeDelta = new Vector2(260f, 90f);
+            rect.anchoredPosition = offsetFromRight;
+
             Button button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
 
-            TMP_Text label = CreateText("Text", image.transform, route.DisplayName, 28, TextAlignmentOptions.Center);
+            TMP_Text label = CreateText("Text", image.transform, text, 30, TextAlignmentOptions.Center);
             label.color = new Color(0.1f, 0.1f, 0.1f);
             Stretch(label.rectTransform);
-
-            RouteButton routeButton = image.gameObject.AddComponent<RouteButton>();
-            routeButton.root = root;
-            routeButton.trainIndex = 0;
-            routeButton.route = route;
-            routeButton.label = label;
+            return button;
         }
     }
 }

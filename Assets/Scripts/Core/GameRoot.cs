@@ -54,7 +54,7 @@ namespace TrainManager.Core
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать.
             Trains.Tick();
 
-            Events.TrainDeparted += (train, route) => Save();
+            Events.TrainDeparted += (train, trip) => Save();
             Events.TrainReachedStop += (train, city, isFinal) => Save();
 
             Save();
@@ -88,6 +88,28 @@ namespace TrainManager.Core
                 }
 
                 if (train.trip == null) train.trip = new TripState();
+
+                // Город убрали из карты — возвращаем поезд в стартовый город.
+                if (train.state != TrainState.Moving && database.GetCity(train.currentCityId) == null &&
+                    database.startCity != null)
+                {
+                    Debug.LogWarning($"[Game] Города «{train.currentCityId}» больше нет на карте, поезд {train.instanceId} перенесён в {database.startCity.displayName}");
+                    train.currentCityId = database.startCity.cityId;
+                    train.state = TrainState.Idle;
+                }
+
+                // Город из поездки убрали из карты — поездку отменяем.
+                if (train.state == TrainState.Moving && train.trip.IsActive)
+                {
+                    foreach (string cityId in train.trip.stopIds)
+                    {
+                        if (database.GetCity(cityId) == null)
+                        {
+                            train.trip = new TripState();
+                            break;
+                        }
+                    }
+                }
 
                 // Поездка повреждена — ставим поезд в первый город маршрута, чтобы он не завис.
                 if (train.state == TrainState.Moving && !train.trip.IsActive)

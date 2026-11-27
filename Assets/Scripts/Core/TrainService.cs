@@ -59,18 +59,51 @@ namespace TrainManager.Core
 
         // ================= Отправление =================
 
-        /// <summary>Можно ли сейчас отправить поезд по маршруту. reason — почему нельзя.</summary>
+        /// <summary>Можно ли отправить поезд по готовому маршруту (ассет RouteData).</summary>
         public bool CanStartRoute(TrainInstance train, RouteData route, out string reason)
+        {
+            if (route == null || !route.IsValid)
+            {
+                reason = "маршрут не настроен";
+                return false;
+            }
+            return CanStartTrip(train, route.stops, out reason);
+        }
+
+        /// <summary>Отправить поезд по готовому маршруту (ассет RouteData).</summary>
+        public bool TryStartRoute(TrainInstance train, RouteData route)
+        {
+            if (route == null || !route.IsValid)
+            {
+                Debug.LogWarning("[Train] Отправление невозможно: маршрут не настроен");
+                return false;
+            }
+            return TryStartTrip(train, route.stops, route.routeId);
+        }
+
+        /// <summary>
+        /// Можно ли отправить поезд по цепочке городов stops (первый — где поезд стоит).
+        /// reason — почему нельзя.
+        /// </summary>
+        public bool CanStartTrip(TrainInstance train, IReadOnlyList<CityData> stops, out string reason)
         {
             if (train == null)
             {
                 reason = "поезд не найден";
                 return false;
             }
-            if (route == null || !route.IsValid)
+            if (stops == null || stops.Count < 2)
             {
-                reason = "маршрут не настроен";
+                reason = "в маршруте меньше двух городов";
                 return false;
+            }
+            for (int i = 0; i < stops.Count; i++)
+            {
+                if (stops[i] == null)
+                {
+                    reason = "в маршруте пустой город";
+                    return false;
+                }
             }
 
             TrainData model = GetModel(train);
@@ -84,16 +117,16 @@ namespace TrainManager.Core
                 reason = "поезд уже в пути";
                 return false;
             }
-            if (train.currentCityId != route.First.cityId)
+            if (train.currentCityId != stops[0].cityId)
             {
-                reason = $"поезд не в городе {route.First.displayName}";
+                reason = $"поезд не в городе {stops[0].displayName}";
                 return false;
             }
-            for (int i = 1; i < route.stops.Count; i++)
+            for (int i = 1; i < stops.Count; i++)
             {
-                if (db.FindLine(route.stops[i - 1], route.stops[i]) == null)
+                if (db.FindLine(stops[i - 1], stops[i]) == null)
                 {
-                    reason = $"нет линии {route.stops[i - 1].displayName} — {route.stops[i].displayName}";
+                    reason = $"нет линии {stops[i - 1].displayName} — {stops[i].displayName}";
                     return false;
                 }
             }
@@ -102,10 +135,13 @@ namespace TrainManager.Core
             return true;
         }
 
-        /// <summary>Отправить поезд. Возвращает false, если нельзя (причина пишется в Console).</summary>
-        public bool TryStartRoute(TrainInstance train, RouteData route)
+        /// <summary>
+        /// Отправить поезд по цепочке городов. routeId — ID ассета маршрута, если он есть (может быть пустым).
+        /// Возвращает false, если нельзя (причина пишется в Console).
+        /// </summary>
+        public bool TryStartTrip(TrainInstance train, IReadOnlyList<CityData> stops, string routeId = null)
         {
-            if (!CanStartRoute(train, route, out string reason))
+            if (!CanStartTrip(train, stops, out string reason))
             {
                 Debug.LogWarning($"[Train] Отправление невозможно: {reason}");
                 return false;
@@ -115,15 +151,15 @@ namespace TrainManager.Core
             long now = clock.NowUnixMs;
             long t = now;
 
-            var trip = new TripState { routeId = route.routeId, reachedStopIndex = 0 };
-            trip.stopIds.Add(route.stops[0].cityId);
+            var trip = new TripState { routeId = routeId ?? "", reachedStopIndex = 0 };
+            trip.stopIds.Add(stops[0].cityId);
             trip.stopTimesUnixMs.Add(now);
 
-            for (int i = 1; i < route.stops.Count; i++)
+            for (int i = 1; i < stops.Count; i++)
             {
-                float distance = db.FindLine(route.stops[i - 1], route.stops[i]).distance;
+                float distance = db.FindLine(stops[i - 1], stops[i]).distance;
                 t += LegDurationMs(distance, model.baseSpeed);
-                trip.stopIds.Add(route.stops[i].cityId);
+                trip.stopIds.Add(stops[i].cityId);
                 trip.stopTimesUnixMs.Add(t);
             }
 
@@ -131,10 +167,11 @@ namespace TrainManager.Core
             train.currentCityId = ""; // поезд покинул станцию и не находится ни в одном городе
             train.state = TrainState.Moving;
 
-            Debug.Log($"[Train] {model.displayName} отправлен: {route.DisplayName}. " +
-                      $"Дистанция {GetRouteDistance(route):0}, скорость {model.baseSpeed}, в пути {(t - now) / 1000f:0.0} с");
+            string name = DescribeStops(trip.stopIds);
+            Debug.Log($"[Train] {model.displayName} отправлен: {name}. " +
+                      $"Дистанция {GetTripDistance(stops):0}, скорость {model.baseSpeed}, в пути {(t - now) / 1000f:0.0} с");
 
-            events.RaiseTrainDeparted(train, route);
+            events.RaiseTrainDeparted(train, trip);
             return true;
         }
 
@@ -150,15 +187,44 @@ namespace TrainManager.Core
         public float GetRouteDistance(RouteData route)
         {
             if (route == null || !route.IsValid) return -1f;
+            return GetTripDistance(route.stops);
+        }
+
+        /// <summary>Сумма дистанций линий цепочки городов. -1, если какой-то линии нет.</summary>
+        public float GetTripDistance(IReadOnlyList<CityData> stops)
+        {
+            if (stops == null || stops.Count < 2) return -1f;
 
             float sum = 0f;
-            for (int i = 1; i < route.stops.Count; i++)
+            for (int i = 1; i < stops.Count; i++)
             {
-                RailwayLineData line = db.FindLine(route.stops[i - 1], route.stops[i]);
+                RailwayLineData line = db.FindLine(stops[i - 1], stops[i]);
                 if (line == null) return -1f;
                 sum += line.distance;
             }
             return sum;
+        }
+
+        /// <summary>Сколько секунд займёт поездка этого поезда по цепочке. -1, если нельзя посчитать.</summary>
+        public float GetTripSeconds(TrainInstance train, IReadOnlyList<CityData> stops)
+        {
+            TrainData model = GetModel(train);
+            float distance = GetTripDistance(stops);
+            if (model == null || model.baseSpeed <= 0f || distance < 0f) return -1f;
+            return LegDurationMs(distance, model.baseSpeed) / 1000f;
+        }
+
+        /// <summary>Названия городов через тире: «Лондон — Париж — Берлин».</summary>
+        public string DescribeStops(IReadOnlyList<string> cityIds)
+        {
+            if (cityIds == null || cityIds.Count == 0) return "?";
+            var parts = new string[cityIds.Count];
+            for (int i = 0; i < cityIds.Count; i++)
+            {
+                CityData city = db.GetCity(cityIds[i]);
+                parts[i] = city != null ? city.displayName : cityIds[i];
+            }
+            return string.Join(" — ", parts);
         }
 
         // ================= Движение =================

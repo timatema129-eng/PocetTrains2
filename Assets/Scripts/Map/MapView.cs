@@ -24,6 +24,8 @@ namespace TrainManager.Map
             }
         }
 
+        public IEnumerable<StationView> Stations => stations.Values;
+
         /// <summary>Позиция станции города на карте. false — если такой станции нет.</summary>
         public bool TryGetStationPosition(string cityId, out Vector2 position)
         {

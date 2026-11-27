@@ -32,9 +32,8 @@ namespace TrainManager.UI
             switch (train.state)
             {
                 case TrainState.Moving:
-                    RouteData route = root.Database.GetRoute(train.trip.routeId);
                     root.Trains.GetPosition(train, out _, out string nextId, out _);
-                    line = $"В пути: {(route != null ? route.DisplayName : train.trip.routeId)} — " +
+                    line = $"В пути: {root.Trains.DescribeStops(train.trip.stopIds)} — " +
                            $"{root.Trains.GetTripProgress(train) * 100f:0}%\n" +
                            $"Следующая остановка: {CityName(nextId)}, до конечной {root.Trains.GetSecondsLeft(train):0.0} с";
                     break;

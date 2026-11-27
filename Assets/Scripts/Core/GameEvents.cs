@@ -10,8 +10,8 @@ namespace TrainManager.Core
     /// </summary>
     public class GameEvents
     {
-        /// <summary>Поезд отправился по маршруту.</summary>
-        public event Action<TrainInstance, RouteData> TrainDeparted;
+        /// <summary>Поезд отправился. trip — куда и когда прибывает в каждый город.</summary>
+        public event Action<TrainInstance, TripState> TrainDeparted;
 
         /// <summary>
         /// Поезд доехал до города маршрута. isFinal = true — это конечная.
@@ -19,8 +19,8 @@ namespace TrainManager.Core
         /// </summary>
         public event Action<TrainInstance, CityData, bool> TrainReachedStop;
 
-        public void RaiseTrainDeparted(TrainInstance train, RouteData route) =>
-            TrainDeparted?.Invoke(train, route);
+        public void RaiseTrainDeparted(TrainInstance train, TripState trip) =>
+            TrainDeparted?.Invoke(train, trip);
 
         public void RaiseTrainReachedStop(TrainInstance train, CityData city, bool isFinal) =>
             TrainReachedStop?.Invoke(train, city, isFinal);

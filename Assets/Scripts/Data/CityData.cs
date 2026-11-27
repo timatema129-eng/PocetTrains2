@@ -17,6 +17,12 @@ namespace TrainManager.Data
         public string displayName;
         public RegionData region;
 
+        [Header("Geography")]
+        [Tooltip("Реальная широта города. Из неё считаются позиция на карте и дистанции линий")]
+        public float latitude;
+        [Tooltip("Реальная долгота города")]
+        public float longitude;
+
         [Header("Map")]
         [Tooltip("Позиция станции на карте (UI, пиксели от центра экрана при 1920x1080)")]
         public Vector2 mapPosition;
