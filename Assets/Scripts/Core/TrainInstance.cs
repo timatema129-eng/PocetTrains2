@@ -28,6 +28,12 @@ namespace TrainManager.Core
         public float fuel;
         public List<string> wagonIds = new List<string>();
 
+        /// <summary>Состояние (износ) 0..100. Падает от километража, восстанавливается техобслуживанием.</summary>
+        public float condition = 100f;
+
+        /// <summary>Поломка: нет / лёгкая / сломан.</summary>
+        public BreakdownState breakdown = BreakdownState.None;
+
         public bool IsMoving => state == TrainState.Moving && trip != null && trip.IsActive;
     }
 
@@ -54,6 +60,17 @@ namespace TrainManager.Core
 
         public bool IsActive => stopIds != null && stopTimesUnixMs != null &&
                                 stopIds.Count >= 2 && stopIds.Count == stopTimesUnixMs.Count;
+
+        /// <summary>
+        /// Если поезд выехал с лёгкой поломкой и сломается в пути: на каком участке (индекс города, откуда он едет)
+        /// и когда. -1 / 0 — доедет.
+        /// </summary>
+        public int failLegIndex = -1;
+        public long failAtUnixMs;
+        /// <summary>Доля участка, где поезд встал (для картинки на карте).</summary>
+        public float failProgress;
+
+        public bool WillFail => failLegIndex >= 0 && failAtUnixMs > 0;
 
         public int LastIndex => stopIds.Count - 1;
 

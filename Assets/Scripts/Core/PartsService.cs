@@ -166,6 +166,11 @@ namespace TrainManager.Core
                 reason = "поезд в пути";
                 return false;
             }
+            if (train.state == TrainManager.Trains.TrainState.Stranded)
+            {
+                reason = "поезд стоит на линии — сначала буксировка";
+                return false;
+            }
             if (train.wagonIds != null && train.wagonIds.Count > 0)
             {
                 reason = "сначала отцепи вагоны";

@@ -19,10 +19,12 @@ namespace TrainManager.Core
         private readonly GameEvents events;
         private readonly FuelService fuel;
         private readonly NetworkService network;
+        private readonly MaintenanceService maintenance;
 
         public TrainService(GameState state, GameDatabase db, IGameClock clock, GameEvents events, FuelService fuel,
-            NetworkService network)
+            NetworkService network, MaintenanceService maintenance)
         {
+            this.maintenance = maintenance;
             this.network = network;
             this.state = state;
             this.db = db;
@@ -120,6 +122,16 @@ namespace TrainManager.Core
             if (train.IsMoving)
             {
                 reason = "поезд уже в пути";
+                return false;
+            }
+            if (train.state == TrainState.Stranded)
+            {
+                reason = "поезд сломался на линии — нужна буксировка";
+                return false;
+            }
+            if (train.breakdown == BreakdownState.Broken)
+            {
+                reason = "поезд сломан — почини в окне станции";
                 return false;
             }
             if (train.currentCityId != stops[0].cityId)
@@ -265,6 +277,9 @@ namespace TrainManager.Core
                 trip.stopTimesUnixMs.Add(times[i]);
             }
 
+            maintenance.ApplyWear(train, GetTripDistance(stops));
+            maintenance.PlanFailure(train, trip); // только при лёгкой поломке: встанет ли в пути
+
             train.trip = trip;
             train.currentCityId = ""; // поезд покинул станцию и не находится ни в одном городе
             train.state = TrainState.Moving;
@@ -350,9 +365,18 @@ namespace TrainManager.Core
         {
             TripState trip = train.trip;
 
-            while (trip.reachedStopIndex < trip.LastIndex &&
-                   now >= trip.stopTimesUnixMs[trip.reachedStopIndex + 1])
+            while (true)
             {
+                // Лёгкая поломка: поезд встаёт на линии в заранее решённый момент
+                if (trip.WillFail && trip.reachedStopIndex == trip.failLegIndex && now >= trip.failAtUnixMs)
+                {
+                    maintenance.Strand(train);
+                    return;
+                }
+                if (trip.reachedStopIndex >= trip.LastIndex ||
+                    now < trip.stopTimesUnixMs[trip.reachedStopIndex + 1])
+                    break;
+
                 trip.reachedStopIndex++;
                 bool isFinal = trip.reachedStopIndex == trip.LastIndex;
                 string cityId = trip.stopIds[trip.reachedStopIndex];
@@ -375,6 +399,7 @@ namespace TrainManager.Core
                 {
                     // После выгрузки состав легче — проверяем, хватит ли топлива хотя бы на толчок
                     fuel.UpdateOutOfFuel(train);
+                    maintenance.RollBreakdownOnArrival(train);
                     break;
                 }
             }
@@ -386,6 +411,15 @@ namespace TrainManager.Core
         /// </summary>
         public void GetPosition(TrainInstance train, out string fromCityId, out string toCityId, out float legProgress)
         {
+            if (train != null && train.state == TrainState.Stranded && train.trip != null && train.trip.IsActive)
+            {
+                // Стоит на линии там, где сломался
+                int failLeg = Mathf.Clamp(train.trip.failLegIndex, 0, train.trip.LastIndex - 1);
+                fromCityId = train.trip.stopIds[failLeg];
+                toCityId = train.trip.stopIds[failLeg + 1];
+                legProgress = train.trip.failProgress;
+                return;
+            }
             if (train == null || !train.IsMoving)
             {
                 fromCityId = train != null ? train.currentCityId : null;

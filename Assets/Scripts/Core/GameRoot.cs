@@ -25,6 +25,7 @@ namespace TrainManager.Core
         public FuelService Fuel { get; private set; }
         public NetworkService Network { get; private set; }
         public PartsService Parts { get; private set; }
+        public MaintenanceService Maintenance { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -53,7 +54,8 @@ namespace TrainManager.Core
             Wallet = new WalletService(State, Events);
             Fuel = new FuelService(State, database, Wallet);
             Network = new NetworkService(State, database, Wallet, Events);
-            Trains = new TrainService(State, database, clock, Events, Fuel, Network);
+            Maintenance = new MaintenanceService(State, database, Wallet, Events);
+            Trains = new TrainService(State, database, clock, Events, Fuel, Network, Maintenance);
             Wagons = new WagonService(State, database, Wallet, Events, clock, Fuel, Network); // подписывается на прибытие: выгрузка
             Parts = new PartsService(State, database, Wallet, Trains, Events);
 
@@ -72,6 +74,7 @@ namespace TrainManager.Core
             Events.LineBought += line => Save();
             Events.LineChanged += line => Save();
             Events.PartsChanged += () => Save();
+            Events.TrainConditionChanged += train => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.
@@ -113,9 +116,20 @@ namespace TrainManager.Core
                 }
 
                 if (train.trip == null) train.trip = new TripState();
+                if (float.IsNaN(train.condition)) train.condition = 100f;
+                train.condition = Mathf.Clamp(train.condition, 0f, 100f);
+
+                // Встал на линии, но поездка повреждена — ставим в первый город маршрута или в стартовый
+                if (train.state == TrainState.Stranded && !train.trip.IsActive)
+                {
+                    train.currentCityId = database.startCity != null ? database.startCity.cityId : "";
+                    train.state = TrainState.Idle;
+                    train.breakdown = BreakdownState.Broken;
+                }
 
                 // Город убрали из карты — возвращаем поезд в стартовый город.
-                if (train.state != TrainState.Moving && database.GetCity(train.currentCityId) == null &&
+                if (train.state != TrainState.Moving && train.state != TrainState.Stranded &&
+                    database.GetCity(train.currentCityId) == null &&
                     database.startCity != null)
                 {
                     Debug.LogWarning($"[Game] Города «{train.currentCityId}» больше нет на карте, поезд {train.instanceId} перенесён в {database.startCity.displayName}");

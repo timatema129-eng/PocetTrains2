@@ -39,6 +39,9 @@ namespace TrainManager.UI
                 case TrainState.Arrived:
                     line = $"Прибыл: {CityName(train.currentCityId)}";
                     break;
+                case TrainState.Stranded:
+                    line = "Сломался на линии — буксировка в списке «Поезда»";
+                    break;
                 case TrainState.OutOfFuel:
                     line = $"Нет топлива: {CityName(train.currentCityId)} — заправь в окне станции";
                     break;
@@ -49,7 +52,8 @@ namespace TrainManager.UI
 
             text.text = $"Поезд «{root.Trains.GetDisplayName(train)}» ({train.instanceId})\n" +
                         $"Состояние: {train.state}, вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}, " +
-                        $"топливо {train.fuel:0.#}/{root.Fuel.GetCapacity(train):0.#}\n{line}";
+                        $"топливо {train.fuel:0.#}/{root.Fuel.GetCapacity(train):0.#}, " +
+                        $"состояние {train.condition:0}% ({MaintenanceService.Describe(train.breakdown)})\n{line}";
         }
 
         private string CityName(string cityId)

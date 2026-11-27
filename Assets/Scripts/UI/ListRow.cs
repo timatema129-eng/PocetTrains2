@@ -24,6 +24,9 @@ namespace TrainManager.UI
         /// <summary>Линия строки: покупка линии или (если куплена) покупка пути и смена цвета.</summary>
         [System.NonSerialized] public TrainManager.Data.RailwayLineData line;
 
+        /// <summary>Действие строки с поездом: "maintain" (техобслуживание) или "repair" (ремонт).</summary>
+        [System.NonSerialized] public string action;
+
         /// <summary>Регион на открытие (если строка — открытие региона).</summary>
         [System.NonSerialized] public TrainManager.Data.RegionData region;
 

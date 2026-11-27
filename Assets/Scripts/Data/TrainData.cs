@@ -44,6 +44,12 @@ namespace TrainManager.Data
         [Tooltip("На сколько один топливный вагон увеличивает запас топлива")]
         [Min(0)] public int fuelPerFuelWagon = 0;
 
+        [Header("Wear (черновик)")]
+        [Tooltip("На сколько % падает состояние за 1 км пути")]
+        [Min(0f)] public float wearPerKm = 0.02f;
+        [Tooltip("Множитель цен техобслуживания, ремонта и буксировки для этой модели")]
+        [Min(0f)] public float serviceCostMultiplier = 1f;
+
         [Header("Assembly")]
         [Tooltip("Сколько одинаковых деталей нужно для сборки (обычный 3 … крутой до 15)")]
         [Min(1)] public int partsRequiredForAssembly = 3;

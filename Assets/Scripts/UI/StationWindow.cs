@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TrainManager.Core;
 using TrainManager.Data;
+using TrainManager.Trains;
 
 namespace TrainManager.UI
 {
@@ -141,6 +142,7 @@ namespace TrainManager.UI
             TrainInstance train = TrainHere();
             sb.Append(train != null ? train.instanceId : "-").Append('|');
             if (train != null) sb.Append(string.Join(",", train.wagonIds)).Append('|');
+            if (train != null) sb.Append(Mathf.FloorToInt(train.condition)).Append(':').Append(train.breakdown).Append(':').Append(root.Parts.Scrap).Append('|');
             foreach (WagonInstance w in root.Wagons.GetStationWagons(City.cityId)) sb.Append(w.instanceId).Append(',');
             sb.Append('|').Append(root.Wagons.GetStationCapacity(City.cityId));
             sb.Append('|').Append(root.Wagons.CurrentOfferPeriod);
@@ -183,6 +185,26 @@ namespace TrainManager.UI
                 {
                     WagonInstance captured = w;
                     AddRow($"  {DescribeWagon(w)}", "Отцепить", () => root.Wagons.TryDetach(TrainHere(), captured)).wagon = w;
+                }
+            }
+
+            // ---- Состояние поезда ----
+            if (train != null)
+            {
+                ListRow cond = AddRow($"<b>Состояние {train.condition:0}%</b> · {MaintenanceService.Describe(train.breakdown)} · " +
+                                      $"шанс поломки {root.Maintenance.GetBreakdownChance(train) * 100f:0}%",
+                    $"ТО {root.Maintenance.GetMaintenancePrice(train)}", () => root.Maintenance.TryMaintain(TrainHere()));
+                cond.action = "maintain";
+                if (train.breakdown != BreakdownState.None)
+                {
+                    string hint = train.breakdown == BreakdownState.Light
+                        ? "  Лёгкая поломка: ехать можно, но может встать в пути"
+                        : "  Сломан: не поедет, пока не починишь";
+                    ListRow repair = AddRow(hint, $"Ремонт {root.Maintenance.GetRepairCoins(train)}",
+                        () => root.Maintenance.TryRepair(TrainHere(), false));
+                    repair.action = "repair";
+                    repair.SetSecond($"Лом {root.Maintenance.GetRepairScrap(train)}",
+                        () => root.Maintenance.TryRepair(TrainHere(), true));
                 }
             }
 
@@ -293,6 +315,17 @@ namespace TrainManager.UI
                 if (row == null || row.button == null || !row.button.gameObject.activeSelf || row.buttonLabel == null) continue;
 
                 string b = row.buttonLabel.text;
+                if (row.action == "maintain")
+                {
+                    row.button.interactable = root.Maintenance.CanMaintain(train, out _);
+                    continue;
+                }
+                if (row.action == "repair")
+                {
+                    row.button.interactable = root.Maintenance.CanRepair(train, false, out _);
+                    if (row.button2 != null) row.button2.interactable = root.Maintenance.CanRepair(train, true, out _);
+                    continue;
+                }
                 if (row.serviceType == null && row.line == null && b.StartsWith("Купить") && offerIndex < offers.Count)
                     row.button.interactable = root.Wagons.CanBuy(offers[offerIndex++], train, out _);
                 else if (b == "Прицепить" && row.wagon != null)

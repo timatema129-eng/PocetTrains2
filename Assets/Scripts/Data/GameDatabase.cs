@@ -91,6 +91,27 @@ namespace TrainManager.Data
         [Tooltip("Сколько лома даёт разборка поезда за каждую деталь, нужную для его сборки")]
         [Min(0)] public int scrapPerPart = 1;
 
+        [Header("Wear and repair (черновик баланса)")]
+        [Tooltip("Техобслуживание (до 100%) = база + k × (недостающие %)². Чем раньше, тем дешевле")]
+        [Min(0f)] public float maintenanceBaseCoins = 10f;
+        [Min(0f)] public float maintenanceCoinsPerMissingSq = 0.03f;
+        [Tooltip("Шанс случайной поломки по прибытии при 100% состояния")]
+        [Range(0f, 1f)] public float breakdownChanceAtFull = 0.02f;
+        [Tooltip("Добавка к шансу при 0% состояния (растёт по квадрату износа)")]
+        [Range(0f, 1f)] public float breakdownChanceAtZero = 0.35f;
+        [Tooltip("Какая доля случайных поломок — лёгкие (остальные — «сломан»)")]
+        [Range(0f, 1f)] public float lightBreakdownShare = 0.5f;
+        [Tooltip("С лёгкой поломкой: шанс сломаться на каждом участке пути")]
+        [Range(0f, 1f)] public float lightFailChancePerLeg = 0.25f;
+        [Tooltip("Ремонт лёгкой поломки: монеты или лом")]
+        [Min(0)] public int repairLightCoins = 25;
+        [Min(0)] public int repairLightScrap = 2;
+        [Tooltip("Ремонт «сломан»: монеты или лом")]
+        [Min(0)] public int repairBrokenCoins = 60;
+        [Min(0)] public int repairBrokenScrap = 5;
+        [Tooltip("Буксировка поезда, вставшего на линии, до города, откуда он ехал")]
+        [Min(0)] public int towCoins = 100;
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]

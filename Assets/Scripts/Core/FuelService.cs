@@ -82,7 +82,7 @@ namespace TrainManager.Core
         /// <summary>Поезду не хватает топлива даже на толчок — он «без топлива».</summary>
         public void UpdateOutOfFuel(TrainInstance train)
         {
-            if (train == null || train.IsMoving) return;
+            if (train == null || train.IsMoving || train.state == TrainState.Stranded) return;
 
             bool empty = train.fuel + 0.0001f < GetPushFuel(train);
             if (empty && train.state != TrainState.OutOfFuel)

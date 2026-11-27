@@ -56,6 +56,11 @@ namespace TrainManager.Core
         public void RaiseTrainAssembled(TrainInstance train) => TrainAssembled?.Invoke(train);
         public void RaiseTrainDisassembled(TrainInstance train) => TrainDisassembled?.Invoke(train);
 
+        /// <summary>Изменилось состояние поезда: износ, поломка, встал на линии, отбуксирован.</summary>
+        public event Action<TrainInstance> TrainConditionChanged;
+
+        public void RaiseTrainConditionChanged(TrainInstance train) => TrainConditionChanged?.Invoke(train);
+
         /// <summary>У линии изменились пути или цвет.</summary>
         public event Action<RailwayLineData> LineChanged;
 

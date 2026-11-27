@@ -48,7 +48,7 @@ namespace TrainManager.UI
             if (root == null || !root.IsReady) return;
 
             var sb = new StringBuilder();
-            foreach (TrainInstance t in root.State.trains) sb.Append(t.instanceId).Append(',');
+            foreach (TrainInstance t in root.State.trains) sb.Append(t.instanceId).Append(':').Append(t.state == TrainState.Stranded).Append(',');
             string sig = sb.ToString();
             if (sig != signature)
             {
@@ -64,7 +64,9 @@ namespace TrainManager.UI
                 TrainInstance train = root.State.FindTrain(rowTrainIds[i]);
                 if (train != null && rows[i].label != null) rows[i].label.text = Describe(train);
                 if (train != null && rows[i].button2 != null)
-                    rows[i].button2.interactable = root.Parts.CanDisassemble(train, out _);
+                    rows[i].button2.interactable = train.state == TrainState.Stranded
+                        ? root.Maintenance.CanTow(train, out _)
+                        : root.Parts.CanDisassemble(train, out _);
             }
         }
 
@@ -81,7 +83,10 @@ namespace TrainManager.UI
                 ListRow row = Instantiate(rowTemplate, listContainer);
                 row.gameObject.SetActive(true);
                 row.Set(Describe(train), "Показать", () => Show(id));
-                row.SetSecond("Разобрать", () => root.Parts.TryDisassemble(root.State.FindTrain(id)));
+                if (train.state == TrainState.Stranded)
+                    row.SetSecond($"Буксир {root.Maintenance.GetTowPrice(train)}", () => root.Maintenance.TryTow(root.State.FindTrain(id)));
+                else
+                    row.SetSecond("Разобрать", () => root.Parts.TryDisassemble(root.State.FindTrain(id)));
                 rows.Add(row);
                 rowTrainIds.Add(id);
             }
@@ -100,7 +105,7 @@ namespace TrainManager.UI
             if (navigator != null && from != null)
                 navigator.CenterOn(to != null ? Vector2.Lerp(from.mapPosition, to.mapPosition, t) : from.mapPosition);
 
-            if (!train.IsMoving && from != null && stationWindow != null)
+            if (!train.IsMoving && train.state != TrainState.Stranded && from != null && stationWindow != null)
                 stationWindow.Open(from);
 
             gameObject.SetActive(false);
@@ -110,7 +115,14 @@ namespace TrainManager.UI
         {
             string name = $"«{root.Trains.GetDisplayName(train)}» {train.instanceId}";
             string where;
-            if (train.IsMoving)
+            if (train.state == TrainState.Stranded)
+            {
+                root.Trains.GetPosition(train, out string aId, out string bId, out _);
+                CityData a = root.Database.GetCity(aId);
+                CityData b = root.Database.GetCity(bId);
+                where = $"<color=#ff6060>сломался на линии {(a != null ? a.displayName : "?")} — {(b != null ? b.displayName : "?")}, нужна буксировка</color>";
+            }
+            else if (train.IsMoving)
             {
                 root.Trains.GetPosition(train, out _, out string nextId, out _);
                 CityData next = root.Database.GetCity(nextId);
@@ -121,7 +133,7 @@ namespace TrainManager.UI
                 CityData city = root.Database.GetCity(train.currentCityId);
                 where = $"{(city != null ? city.displayName : "?")}, {(train.state == TrainState.OutOfFuel ? "нет топлива" : "стоит")}";
             }
-            return $"{name} · лом при разборке {root.Parts.GetScrapFor(train)}\n{where} · вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}";
+            return $"{name} · {train.condition:0}% {MaintenanceService.Describe(train.breakdown)} · лом при разборке {root.Parts.GetScrapFor(train)}\n{where} · вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}";
         }
     }
 }

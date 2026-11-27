@@ -70,6 +70,7 @@ namespace TrainManager.EditorTools
                 t.baseSpeed = 100f; t.maxWagons = 12; t.maxFuel = 150; t.partsRequiredForAssembly = 8;
                 t.mainEngines = 1; t.maxExtraEngines = 1; t.wagonsPerExtraEngine = 3;
                 t.maxFuelWagons = 2; t.fuelPerFuelWagon = 40;
+                t.serviceCostMultiplier = 2f; // ТО, ремонт и буксировка дороже — черновик
             });
             AddUnique(database.trains, rare);
             TrainData epic = LoadOrCreate<TrainData>(DataRoot + "/Trains/Train_Maglev.asset", t =>
@@ -78,6 +79,7 @@ namespace TrainManager.EditorTools
                 t.baseSpeed = 200f; t.maxWagons = 16; t.maxFuel = 400; t.partsRequiredForAssembly = 15;
                 t.mainEngines = 1; t.maxExtraEngines = 1; t.wagonsPerExtraEngine = 4;
                 t.maxFuelWagons = 4; t.fuelPerFuelWagon = 100;
+                t.serviceCostMultiplier = 4f;
             });
             AddUnique(database.trains, epic);
 

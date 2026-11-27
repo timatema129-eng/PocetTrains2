@@ -15,6 +15,7 @@ Assets/
 │   │             WalletService (монеты и доллары), WagonService (вагоны, склад, выгрузка),
 │   │             FuelService (топливо, толчок, заправка), NetworkService (регионы, линии, пути, цвета),
 │   │             PartsService (боксы, детали, сборка, разборка в лом),
+│   │             MaintenanceService (износ, техобслуживание, поломки, ремонт, буксировка),
 │   │             SaveService (сохранение), GameClock (реальное время), GameEvents (события)
 │   ├── Trains/   TrainState, TrainView (картинка поезда), TrainLayer (картинки всех поездов)
 │   ├── Map/      MapView, StationView, LineView, MapNetworkView, MapNavigator (перетаскивание и масштаб)
