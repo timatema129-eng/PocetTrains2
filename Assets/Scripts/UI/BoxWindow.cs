@@ -24,12 +24,15 @@ namespace TrainManager.UI
         private string signature;
         private string lastDrop;
 
+        // Окно создаётся скрытым (сборщик сцены); Awake срабатывает при первом открытии
         private void Awake()
         {
             if (rowTemplate != null) rowTemplate.gameObject.SetActive(false);
             if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
-            gameObject.SetActive(false);
         }
+
+        // Открыто кнопкой нижней панели — перестроить список
+        private void OnEnable() { signature = null; }
 
         public void Toggle()
         {

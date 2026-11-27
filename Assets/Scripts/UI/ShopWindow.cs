@@ -27,12 +27,15 @@ namespace TrainManager.UI
         private ListRow rateRow;
         private float nextRefresh;
 
+        // Окно создаётся скрытым (сборщик сцены); Awake срабатывает при первом открытии
         private void Awake()
         {
             if (rowTemplate != null) rowTemplate.gameObject.SetActive(false);
             if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
-            gameObject.SetActive(false);
         }
+
+        // Открыто кнопкой нижней панели — перестроить список
+        private void OnEnable() { if (root != null && root.IsReady) Rebuild(); }
 
         public void Toggle()
         {

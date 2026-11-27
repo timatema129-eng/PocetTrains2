@@ -53,7 +53,12 @@ namespace TrainManager.UI
             if (openButton != null) openButton.onClick.AddListener(Open);
             if (closeButton != null) closeButton.onClick.AddListener(() => gameObject.SetActive(false));
             BuildScene();
-            gameObject.SetActive(false);
+        }
+
+        private void OnEnable()
+        {
+            trainSignature = null;
+            biome = null;
         }
 
         public void Open()

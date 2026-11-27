@@ -32,12 +32,15 @@ namespace TrainManager.EditorTools
         private const string ScenePath = "Assets/Scenes/ParisPrototype.unity";
 
         [MenuItem("Tools/Train Manager/Build Paris Prototype Scene")]
-        public static void Build()
+        public static void Build() => Build(true);
+
+        /// <summary>interactive = false — без диалогов (сборка APK в GitHub Actions).</summary>
+        public static void Build(bool interactive)
         {
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            if (interactive && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 return;
 
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null &&
+            if (interactive && AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null &&
                 !EditorUtility.DisplayDialog("Train Manager",
                     "Сцена ParisPrototype уже существует. Пересоздать её?\n(Города и линии обновятся по файлу карты.)",
                     "Пересоздать", "Отмена"))
@@ -113,6 +116,11 @@ namespace TrainManager.EditorTools
             });
             AddUnique(database.wagons, engineWagon);
 
+            // Картинки поездов (из постера Артема). Задаются, только если в ассете спрайта ещё нет
+            AssignSprite(standard, "standard_loco");
+            AssignSprite(rare, "express_loco");
+            AssignSprite(epic, "maglev_loco");
+
             CityData paris = database.GetCity("paris");
             if (paris == null)
             {
@@ -152,7 +160,7 @@ namespace TrainManager.EditorTools
             var scaler = canvasGo.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 1f; // телефон в альбомной ориентации: держим высоту
             canvasGo.AddComponent<GraphicRaycaster>();
             Transform canvasT = canvasGo.transform;
 
@@ -161,8 +169,10 @@ namespace TrainManager.EditorTools
             viewportGo.transform.SetParent(canvasT, false);
             var viewportRect = (RectTransform)viewportGo.transform;
             Stretch(viewportRect);
+            viewportRect.offsetMin = new Vector2(0f, BottomBarHeight);
+            viewportRect.offsetMax = new Vector2(0f, -TopBarHeight);
             Image viewportImage = viewportGo.AddComponent<Image>();
-            viewportImage.color = new Color(0.16f, 0.3f, 0.5f); // «море»; картинка нужна, чтобы ловить перетаскивание
+            viewportImage.color = new Color(0.05f, 0.3f, 0.62f); // «море»; картинка нужна, чтобы ловить перетаскивание
             viewportGo.AddComponent<RectMask2D>();
 
             // Карта (content) — размер по крайним городам + поля
@@ -173,6 +183,18 @@ namespace TrainManager.EditorTools
             mapRect.pivot = new Vector2(0.5f, 0.5f);
             mapRect.sizeDelta = MapSize(database, 200f);
             MapView map = mapGo.AddComponent<MapView>();
+
+            // Фон — карта мира (первым ребёнком, под линиями и станциями)
+            Sprite worldSprite = LoadSprite(WorldMapPath, 4096);
+            if (worldSprite != null)
+            {
+                Image world = CreateImage("WorldMap", mapGo.transform, Color.white);
+                world.sprite = worldSprite;
+                world.raycastTarget = false;
+                world.rectTransform.sizeDelta = WorldMapSize;
+                world.rectTransform.anchoredPosition = WorldMapCenter;
+                mapRect.sizeDelta = Vector2.Max(mapRect.sizeDelta, WorldMapSize);
+            }
 
             var scroll = viewportGo.AddComponent<ScrollRect>();
             scroll.viewport = viewportRect;
@@ -197,8 +219,11 @@ namespace TrainManager.EditorTools
 
             // Поезда на карте: шаблон картинки, TrainLayer копирует его для каждого поезда
             // (последними — чтобы рисовались поверх станций)
-            Image trainImage = CreateImage("TrainTemplate", mapGo.transform, new Color(0.85f, 0.2f, 0.2f));
-            trainImage.rectTransform.sizeDelta = new Vector2(30f, 16f);
+            Sprite locoSprite = LoadSprite(TrainsArt + "standard_loco.png", 512);
+            Image trainImage = CreateImage("TrainTemplate", mapGo.transform, locoSprite != null ? Color.white : new Color(0.85f, 0.2f, 0.2f));
+            trainImage.sprite = locoSprite;
+            trainImage.preserveAspect = true;
+            trainImage.rectTransform.sizeDelta = locoSprite != null ? new Vector2(66f, 26f) : new Vector2(30f, 16f);
             trainImage.rectTransform.anchoredPosition = database.startCity.mapPosition;
             trainImage.raycastTarget = false;
             TrainView trainView = trainImage.gameObject.AddComponent<TrainView>();
@@ -211,6 +236,11 @@ namespace TrainManager.EditorTools
             trainLayer.map = map;
             trainLayer.selection = selection;
             trainLayer.template = trainView;
+            if (locoSprite != null)
+            {
+                trainLayer.normalColor = Color.white;                  // спрайт без подкраски
+                trainLayer.selectedColor = new Color(1f, 0.9f, 0.45f); // выбранный — жёлтый оттенок
+            }
 
             // Значки заданий над городами
             TMP_Text questMarker = CreateText("QuestMarkerTemplate", mapGo.transform, "!", 30, TextAlignmentOptions.Center);
@@ -228,30 +258,34 @@ namespace TrainManager.EditorTools
             navigator.content = mapRect;
             navigator.root = root;
 
-            // Статус
-            TMP_Text status = CreateText("TrainStatus", canvasT, "", 26, TextAlignmentOptions.TopLeft);
+            // Верхняя панель: статус выбранного поезда слева, монеты и доллары справа
+            Image topBar = CreateImage("TopBar", canvasT, PanelColor);
+            Place(topBar.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(0f, TopBarHeight));
+
+            TMP_Text status = CreateText("TrainStatus", topBar.transform, "", 22, TextAlignmentOptions.MidlineLeft);
             RectTransform statusRect = status.rectTransform;
-            statusRect.anchorMin = new Vector2(0f, 1f);
-            statusRect.anchorMax = new Vector2(0f, 1f);
-            statusRect.pivot = new Vector2(0f, 1f);
-            statusRect.anchoredPosition = new Vector2(40f, -30f);
-            statusRect.sizeDelta = new Vector2(700f, 180f);
-            status.outlineWidth = 0.2f;
-            status.outlineColor = Color.black;
+            statusRect.anchorMin = new Vector2(0f, 0f);
+            statusRect.anchorMax = new Vector2(1f, 1f);
+            statusRect.pivot = new Vector2(0f, 0.5f);
+            statusRect.offsetMin = new Vector2(24f, 4f);
+            statusRect.offsetMax = new Vector2(-720f, -4f);
+            status.enableAutoSizing = true;
+            status.fontSizeMin = 14f;
+            status.fontSizeMax = 24f;
             TrainStatusText statusText = status.gameObject.AddComponent<TrainStatusText>();
             statusText.root = root;
             statusText.text = status;
             statusText.selection = selection;
 
-            // Баланс (справа сверху)
-            TMP_Text walletLabel = CreateText("Wallet", canvasT, "", 30, TextAlignmentOptions.TopRight);
+            TMP_Text walletLabel = CreateText("Wallet", topBar.transform, "", 36, TextAlignmentOptions.MidlineRight);
+            walletLabel.fontStyle = FontStyles.Bold;
+            walletLabel.color = new Color(1f, 0.85f, 0.35f);
             RectTransform walletRect = walletLabel.rectTransform;
-            walletRect.anchorMin = walletRect.anchorMax = new Vector2(1f, 1f);
-            walletRect.pivot = new Vector2(1f, 1f);
-            walletRect.anchoredPosition = new Vector2(-30f, -24f);
-            walletRect.sizeDelta = new Vector2(700f, 50f);
-            walletLabel.outlineWidth = 0.2f;
-            walletLabel.outlineColor = Color.black;
+            walletRect.anchorMin = new Vector2(1f, 0f);
+            walletRect.anchorMax = new Vector2(1f, 1f);
+            walletRect.pivot = new Vector2(1f, 0.5f);
+            walletRect.anchoredPosition = new Vector2(-24f, 0f);
+            walletRect.sizeDelta = new Vector2(680f, 0f);
             WalletText wallet = walletLabel.gameObject.AddComponent<WalletText>();
             wallet.root = root;
             wallet.text = walletLabel;
@@ -263,10 +297,11 @@ namespace TrainManager.EditorTools
             panelRect.anchorMin = new Vector2(0.5f, 0f);
             panelRect.anchorMax = new Vector2(0.5f, 0f);
             panelRect.pivot = new Vector2(0.5f, 0f);
-            panelRect.anchoredPosition = new Vector2(0f, 20f);
+            panelRect.anchoredPosition = new Vector2(0f, BottomBarHeight + 10f);
             panelRect.sizeDelta = new Vector2(1760f, 110f);
             Image panelBg = panelGo.AddComponent<Image>();
-            panelBg.color = new Color(0f, 0f, 0f, 0.6f);
+            panelBg.color = PanelColor;
+            panelGo.AddComponent<ExclusivePanel>();
 
             TMP_Text planText = CreateText("PlanText", panelGo.transform, "", 26, TextAlignmentOptions.MidlineLeft);
             RectTransform planRect = planText.rectTransform;
@@ -298,14 +333,18 @@ namespace TrainManager.EditorTools
             network.map = map;
             network.planner = planner;
 
-            // Список поездов: кнопка «Поезда» под статусом и окно со списком
-            CreateTrainList(canvasT, root, selection, navigator, window);
-            CreateBoxWindow(canvasT, root);
-            CreateShopWindow(canvasT, root);
-            CreateQuestWindow(canvasT, root, navigator, window);
-
-            CreateTripView(canvasT, root, selection);
+            // Окна справа (одно за раз) и нижняя панель кнопок
+            window.gameObject.AddComponent<ExclusivePanel>();
+            GameObject trainList = CreateTrainList(canvasT, root, selection, navigator, window);
+            GameObject boxes = CreateBoxWindow(canvasT, root);
+            GameObject shop = CreateShopWindow(canvasT, root);
+            GameObject quests = CreateQuestWindow(canvasT, root, navigator, window);
+            GameObject trip = CreateTripView(canvasT, root, selection);
             window.metroWindow = CreateMetroWindow(canvasT, root);
+            CreateBottomBar(canvasT, new[]
+            {
+                ("Поезда", trainList), ("Боксы", boxes), ("Магазин", shop), ("Задания", quests), ("Вид сбоку", trip),
+            });
 
             // Реклама: окно-вопрос и летящий приз (последними — поверх всего)
             AdPrompt prompt = CreateAdPrompt(canvasT);
@@ -317,6 +356,9 @@ namespace TrainManager.EditorTools
             prize.root = root;
             prize.button = prizeButton;
             prize.prompt = prompt;
+            Place((RectTransform)prizeButton.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(30f, -TopBarHeight - 20f), new Vector2(140f, 64f));
+            prizeButton.gameObject.SetActive(false);
             prompt.transform.SetAsLastSibling();
 
             // Нажатие на станцию: маршрут или окно станции
@@ -438,15 +480,18 @@ namespace TrainManager.EditorTools
         private static void CreateStation(CityData city, Transform map)
         {
             Image dot = CreateImage("Station_" + city.cityId, map, StationView.NormalColor);
-            dot.rectTransform.sizeDelta = new Vector2(18f, 18f);
+            dot.rectTransform.sizeDelta = new Vector2(24f, 24f);
             dot.rectTransform.anchoredPosition = city.mapPosition;
             Button button = dot.gameObject.AddComponent<Button>();
             button.targetGraphic = dot;
             button.transition = Selectable.Transition.None; // цвет меняет RoutePlanner (подсветка)
 
-            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 16, TextAlignmentOptions.Center);
-            label.rectTransform.anchoredPosition = new Vector2(0f, -18f);
-            label.rectTransform.sizeDelta = new Vector2(180f, 22f);
+            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 20, TextAlignmentOptions.Center);
+            label.fontStyle = FontStyles.Bold;
+            label.outlineWidth = 0.25f;
+            label.outlineColor = Color.black;
+            label.rectTransform.anchoredPosition = new Vector2(0f, -24f);
+            label.rectTransform.sizeDelta = new Vector2(220f, 26f);
 
             StationView view = dot.gameObject.AddComponent<StationView>();
             view.city = city;
@@ -458,7 +503,7 @@ namespace TrainManager.EditorTools
         {
             if (data == null || !data.IsValid) return;
 
-            const float width = 5f;
+            const float width = 8f;
             Vector2 a = data.cityA.mapPosition;
             Vector2 b = data.cityB.mapPosition;
             Vector2 delta = b - a;
@@ -511,15 +556,16 @@ namespace TrainManager.EditorTools
             var go = new GameObject("StationWindow", typeof(RectTransform));
             go.transform.SetParent(canvasT, false);
             var rect = (RectTransform)go.transform;
-            Place(rect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-20f, -84f), new Vector2(640f, 860f));
+            PlaceSidePanel(rect);
             Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
+            bg.color = PanelColor;
 
             // Заголовок и «закрыть»
-            TMP_Text title = CreateText("Title", go.transform, "Станция", 32, TextAlignmentOptions.MidlineLeft);
+            TMP_Text title = CreateText("Title", go.transform, "Станция", 34, TextAlignmentOptions.MidlineLeft);
+            title.fontStyle = FontStyles.Bold;
             Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(20f, -10f), new Vector2(-110f, 50f));
-            Button close = CreateSmallButton("Close", go.transform, "X", 26);
-            Place((RectTransform)close.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-12f, -10f), new Vector2(60f, 50f));
+            Button close = CreateSmallButton("Close", go.transform, "×", 36);
+            Place((RectTransform)close.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-12f, -8f), new Vector2(70f, 56f));
 
             // Переключатель поездов
             Button prev = CreateSmallButton("PrevTrain", go.transform, "<", 30);
@@ -550,7 +596,7 @@ namespace TrainManager.EditorTools
             viewport.offsetMin = new Vector2(12f, 12f);
             viewport.offsetMax = new Vector2(-12f, -274f);
             Image viewportImage = viewportGo.AddComponent<Image>();
-            viewportImage.color = new Color(1f, 1f, 1f, 0.03f);
+            viewportImage.color = new Color(1f, 1f, 1f, 0.04f);
             viewportGo.AddComponent<RectMask2D>();
 
             var contentGo = new GameObject("Content", typeof(RectTransform));
@@ -602,246 +648,276 @@ namespace TrainManager.EditorTools
             return window;
         }
 
-        private static void CreateTrainList(Transform canvasT, GameRoot root, TrainSelection selection,
-            MapNavigator navigator, StationWindow stationWindow)
-        {
-            Button toggle = CreateSmallButton("TrainsButton", canvasT, "Поезда", 24);
-            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(40f, -220f), new Vector2(200f, 56f));
+        // ================= Общий вид интерфейса =================
 
-            var go = new GameObject("TrainList", typeof(RectTransform));
+        private const float TopBarHeight = 96f;
+        private const float BottomBarHeight = 120f;
+        private const float SidePanelWidth = 880f;
+        private static readonly Color PanelColor = new Color(0.07f, 0.09f, 0.13f, 1f);
+        private static readonly Color HeaderColor = new Color(0.11f, 0.14f, 0.2f, 1f);
+
+        private const string WorldMapPath = "Assets/Art/Map/world_map.jpg";
+        private const string TrainsArt = "Assets/Art/Trains/";
+        // Карта мира подогнана под проекцию городов (map; 0; 10; 24; 0; -635 в _World.txt):
+        // долгота −170…190, широта −58…77
+        private static readonly Vector2 WorldMapSize = new Vector2(8640f, 4704.6f);
+        private static readonly Vector2 WorldMapCenter = new Vector2(0f, -0.4f);
+
+        /// <summary>Окно справа между верхней и нижней панелями.</summary>
+        private static void PlaceSidePanel(RectTransform rect)
+        {
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 0.5f);
+            rect.offsetMin = new Vector2(-SidePanelWidth - 10f, BottomBarHeight + 10f);
+            rect.offsetMax = new Vector2(-10f, -TopBarHeight - 10f);
+        }
+
+        /// <summary>
+        /// Окно справа: заголовок с «×» и прокручиваемый список. Создаётся скрытым, открыто только одно (ExclusivePanel).
+        /// </summary>
+        private static (GameObject go, RectTransform content, TMP_Text title) CreateSidePanel(Transform canvasT, string name, string titleText)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(canvasT, false);
-            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(40f, -286f), new Vector2(620f, 0f));
-            Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
-            var layout = go.AddComponent<VerticalLayoutGroup>();
+            PlaceSidePanel((RectTransform)go.transform);
+            go.AddComponent<Image>().color = PanelColor;
+            go.AddComponent<ExclusivePanel>();
+
+            Image header = CreateImage("Header", go.transform, HeaderColor);
+            Place(header.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(0f, 70f));
+            TMP_Text title = CreateText("Title", header.transform, titleText, 32, TextAlignmentOptions.MidlineLeft);
+            title.fontStyle = FontStyles.Bold;
+            Place(title.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0.5f), new Vector2(20f, 0f), new Vector2(-110f, 0f));
+            Button close = CreateSmallButton("Close", header.transform, "×", 36);
+            Place((RectTransform)close.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-10f, 0f), new Vector2(70f, 56f));
+            close.gameObject.AddComponent<ClosePanelButton>().target = go;
+
+            var viewportGo = new GameObject("ListViewport", typeof(RectTransform));
+            viewportGo.transform.SetParent(go.transform, false);
+            var viewport = (RectTransform)viewportGo.transform;
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = new Vector2(10f, 10f);
+            viewport.offsetMax = new Vector2(-10f, -80f);
+            viewportGo.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.04f);
+            viewportGo.AddComponent<RectMask2D>();
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(viewport, false);
+            var content = (RectTransform)contentGo.transform;
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var layout = contentGo.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(10, 10, 10, 10);
-            layout.spacing = 6f;
+            layout.spacing = 8f;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
-            var fitter = go.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentGo.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            ListRow row = CreateListRowTemplate(go.transform);
+            var scroll = viewportGo.AddComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
 
+            go.SetActive(false);
+            return (go, content, title);
+        }
+
+        /// <summary>Нижняя панель: большие кнопки, каждая открывает/закрывает своё окно.</summary>
+        private static void CreateBottomBar(Transform canvasT, (string label, GameObject panel)[] items)
+        {
+            Image bar = CreateImage("BottomBar", canvasT, PanelColor);
+            Place(bar.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(0f, BottomBarHeight));
+            var layout = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 16, 14, 14);
+            layout.spacing = 14f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            foreach ((string label, GameObject panel) in items)
+            {
+                Button b = CreateSmallButton("Nav_" + label, bar.transform, label, 30);
+                b.gameObject.AddComponent<PanelToggle>().target = panel;
+            }
+        }
+
+        /// <summary>Непрозрачные цвета кнопки: выключенная — серая, но не просвечивает.</summary>
+        private static void SetOpaqueColors(Button button)
+        {
+            ColorBlock c = button.colors;
+            c.normalColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+            c.highlightedColor = new Color(1f, 1f, 1f, 1f);
+            c.pressedColor = new Color(0.78f, 0.82f, 0.9f, 1f);
+            c.selectedColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+            c.disabledColor = new Color(0.5f, 0.52f, 0.56f, 1f);
+            c.colorMultiplier = 1f;
+            button.colors = c;
+        }
+
+        /// <summary>Загрузить картинку как спрайт (и выставить настройки импорта). null — файла нет.</summary>
+        private static Sprite LoadSprite(string path, int maxSize)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return null;
+            if (importer.textureType != TextureImporterType.Sprite || importer.maxTextureSize != maxSize ||
+                importer.mipmapEnabled || importer.spriteImportMode != SpriteImportMode.Single)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.maxTextureSize = maxSize;
+                importer.mipmapEnabled = false;
+                importer.alphaIsTransparency = true;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        /// <summary>Спрайт поезда из Assets/Art/Trains, если в ассете он ещё не задан.</summary>
+        private static void AssignSprite(TrainData train, string artName)
+        {
+            if (train == null || train.sprite != null) return;
+            Sprite sprite = LoadSprite(TrainsArt + artName + ".png", 512);
+            if (sprite == null) return;
+            train.sprite = sprite;
+            EditorUtility.SetDirty(train);
+        }
+
+        // ================= Окна =================
+
+        private static ListRow CreateRowIn(RectTransform content) => CreateListRowTemplate(content);
+
+        private static GameObject CreateTrainList(Transform canvasT, GameRoot root, TrainSelection selection,
+            MapNavigator navigator, StationWindow stationWindow)
+        {
+            var (go, content, _) = CreateSidePanel(canvasT, "TrainList", "Мои поезда");
             TrainListWindow list = go.AddComponent<TrainListWindow>();
             list.root = root;
             list.selection = selection;
             list.navigator = navigator;
             list.stationWindow = stationWindow;
-            list.toggleButton = toggle;
-            list.listContainer = (RectTransform)go.transform;
-            list.rowTemplate = row;
-            // Окно остаётся активным в сцене: TrainListWindow сам скроет его в Awake и повесит кнопку
+            list.listContainer = content;
+            list.rowTemplate = CreateRowIn(content);
+            return go;
         }
 
-        private static void CreateBoxWindow(Transform canvasT, GameRoot root)
+        private static GameObject CreateBoxWindow(Transform canvasT, GameRoot root)
         {
-            Button toggle = CreateSmallButton("BoxesButton", canvasT, "Боксы", 24);
-            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(250f, -220f), new Vector2(200f, 56f));
-
-            var go = new GameObject("BoxWindow", typeof(RectTransform));
-            go.transform.SetParent(canvasT, false);
-            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(40f, -286f), new Vector2(680f, 0f));
-            Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
-            var layout = go.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 10, 10);
-            layout.spacing = 6f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            var fitter = go.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ListRow row = CreateListRowTemplate(go.transform);
-
+            var (go, content, _) = CreateSidePanel(canvasT, "BoxWindow", "Боксы и сборка");
             BoxWindow window = go.AddComponent<BoxWindow>();
             window.root = root;
-            window.toggleButton = toggle;
-            window.listContainer = (RectTransform)go.transform;
-            window.rowTemplate = row;
-            // Окно остаётся активным в сцене: BoxWindow сам скроет его в Awake и повесит кнопку
+            window.listContainer = content;
+            window.rowTemplate = CreateRowIn(content);
+            return go;
         }
 
-        private static void CreateShopWindow(Transform canvasT, GameRoot root)
+        private static GameObject CreateShopWindow(Transform canvasT, GameRoot root)
         {
-            Button toggle = CreateSmallButton("ShopButton", canvasT, "Магазин", 24);
-            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(460f, -220f), new Vector2(200f, 56f));
-
-            var go = new GameObject("ShopWindow", typeof(RectTransform));
-            go.transform.SetParent(canvasT, false);
-            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(40f, -286f), new Vector2(680f, 0f));
-            Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
-            var layout = go.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 10, 10);
-            layout.spacing = 6f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            var fitter = go.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ListRow row = CreateListRowTemplate(go.transform);
-
+            var (go, content, _) = CreateSidePanel(canvasT, "ShopWindow", "Магазин");
             ShopWindow window = go.AddComponent<ShopWindow>();
             window.root = root;
-            window.toggleButton = toggle;
-            window.listContainer = (RectTransform)go.transform;
-            window.rowTemplate = row;
-            // Окно остаётся активным в сцене: ShopWindow сам скроет его в Awake и повесит кнопку
+            window.listContainer = content;
+            window.rowTemplate = CreateRowIn(content);
+            return go;
         }
 
-        private static void CreateQuestWindow(Transform canvasT, GameRoot root, MapNavigator navigator, StationWindow stationWindow)
+        private static GameObject CreateQuestWindow(Transform canvasT, GameRoot root, MapNavigator navigator, StationWindow stationWindow)
         {
-            Button toggle = CreateSmallButton("QuestsButton", canvasT, "Задания", 24);
-            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(670f, -220f), new Vector2(200f, 56f));
-
-            var go = new GameObject("QuestWindow", typeof(RectTransform));
-            go.transform.SetParent(canvasT, false);
-            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(40f, -286f), new Vector2(680f, 0f));
-            Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
-            var layout = go.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 10, 10);
-            layout.spacing = 6f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            var fitter = go.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ListRow row = CreateListRowTemplate(go.transform);
-
+            var (go, content, _) = CreateSidePanel(canvasT, "QuestWindow", "Задания и достижения");
             QuestWindow window = go.AddComponent<QuestWindow>();
+            window.root = root;
             window.navigator = navigator;
             window.stationWindow = stationWindow;
-            window.root = root;
-            window.toggleButton = toggle;
-            window.listContainer = (RectTransform)go.transform;
-            window.rowTemplate = row;
-            // Окно остаётся активным в сцене: QuestWindow сам скроет его в Awake и повесит кнопку
+            window.listContainer = content;
+            window.rowTemplate = CreateRowIn(content);
+            return go;
         }
 
-        private static void CreateTripView(Transform canvasT, GameRoot root, TrainSelection selection)
+        private static MetroWindow CreateMetroWindow(Transform canvasT, GameRoot root)
         {
-            Button open = CreateSmallButton("TripViewButton", canvasT, "Вид сбоку", 24);
-            Place((RectTransform)open.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(880f, -220f), new Vector2(200f, 56f));
+            var (go, content, title) = CreateSidePanel(canvasT, "MetroWindow", "Метро");
+            MetroWindow window = go.AddComponent<MetroWindow>();
+            window.root = root;
+            window.titleText = title;
+            window.listContainer = content;
+            window.rowTemplate = CreateRowIn(content);
+            return window;
+        }
 
-            Image bg = CreateImage("TripView", canvasT, new Color(0.05f, 0.07f, 0.1f, 0.96f));
+        /// <summary>Вид поездки сбоку: широкая панель над нижней панелью кнопок.</summary>
+        private static GameObject CreateTripView(Transform canvasT, GameRoot root, TrainSelection selection)
+        {
+            Image bg = CreateImage("TripView", canvasT, PanelColor);
             Place(bg.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f),
-                Vector2.zero, new Vector2(0f, 480f));
+                new Vector2(0f, BottomBarHeight + 10f), new Vector2(-20f, 460f));
+            bg.gameObject.AddComponent<ExclusivePanel>();
 
-            TMP_Text caption = CreateText("Caption", bg.transform, "", 24, TextAlignmentOptions.MidlineLeft);
+            TMP_Text caption = CreateText("Caption", bg.transform, "", 26, TextAlignmentOptions.MidlineLeft);
             Place(caption.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f),
-                new Vector2(20f, -8f), new Vector2(-120f, 48f));
+                new Vector2(20f, -8f), new Vector2(-130f, 52f));
 
-            Button close = CreateSmallButton("Close", bg.transform, "×", 30);
+            Button close = CreateSmallButton("Close", bg.transform, "×", 36);
             Place((RectTransform)close.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-10f, -6f), new Vector2(60f, 50f));
+                new Vector2(-10f, -6f), new Vector2(70f, 52f));
+            close.gameObject.AddComponent<ClosePanelButton>().target = bg.gameObject;
 
-            Image stageImage = CreateImage("Stage", bg.transform, new Color(0f, 0f, 0f, 1f));
+            Image stageImage = CreateImage("Stage", bg.transform, Color.black);
             RectTransform stage = stageImage.rectTransform;
             stage.anchorMin = new Vector2(0f, 0f);
             stage.anchorMax = new Vector2(1f, 1f);
             stage.offsetMin = new Vector2(10f, 10f);
-            stage.offsetMax = new Vector2(-10f, -62f);
+            stage.offsetMax = new Vector2(-10f, -66f);
             stageImage.gameObject.AddComponent<RectMask2D>();
 
             TripView view = bg.gameObject.AddComponent<TripView>();
             view.root = root;
             view.selection = selection;
-            view.openButton = open;
-            view.closeButton = close;
             view.stage = stage;
             view.caption = caption;
-            // Окно активно в сцене: TripView построит картинку и скроется в Awake
+            bg.gameObject.SetActive(false);
+            return bg.gameObject;
         }
 
-        private static MetroWindow CreateMetroWindow(Transform canvasT, GameRoot root)
-        {
-            var go = new GameObject("MetroWindow", typeof(RectTransform));
-            go.transform.SetParent(canvasT, false);
-            Place((RectTransform)go.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(900f, 0f));
-            Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.96f);
-            var layout = go.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(14, 14, 12, 14);
-            layout.spacing = 6f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            var fitter = go.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            // Заголовок с кнопкой закрытия
-            var header = new GameObject("Header", typeof(RectTransform));
-            header.transform.SetParent(go.transform, false);
-            var hl = header.AddComponent<HorizontalLayoutGroup>();
-            hl.childControlWidth = true;
-            hl.childControlHeight = true;
-            hl.childForceExpandWidth = false;
-            header.AddComponent<LayoutElement>().minHeight = 50f;
-            TMP_Text title = CreateText("Title", header.transform, "Метро", 28, TextAlignmentOptions.MidlineLeft);
-            title.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
-            Button close = CreateSmallButton("Close", header.transform, "×", 30);
-            var ce = close.gameObject.AddComponent<LayoutElement>();
-            ce.preferredWidth = 60f;
-            ce.preferredHeight = 50f;
-
-            ListRow row = CreateListRowTemplate(go.transform);
-
-            MetroWindow window = go.AddComponent<MetroWindow>();
-            window.root = root;
-            window.titleText = title;
-            window.closeButton = close;
-            window.listContainer = (RectTransform)go.transform;
-            window.rowTemplate = row;
-            // Окно активно в сцене: MetroWindow сам скроется в Awake
-            return window;
-        }
-
+        /// <summary>Окно-вопрос по центру поверх всего, фон затемнён и не пропускает нажатия.</summary>
         private static AdPrompt CreateAdPrompt(Transform canvasT)
         {
-            Image bg = CreateImage("AdPrompt", canvasT, new Color(0.05f, 0.07f, 0.1f, 0.96f));
-            Place(bg.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(620f, 240f));
+            Image dim = CreateImage("AdPrompt", canvasT, new Color(0f, 0f, 0f, 0.6f));
+            Stretch(dim.rectTransform);
 
-            TMP_Text label = CreateText("Text", bg.transform, "", 26, TextAlignmentOptions.Center);
+            Image box = CreateImage("Box", dim.transform, PanelColor);
+            Place(box.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(760f, 300f));
+
+            TMP_Text label = CreateText("Text", box.transform, "", 32, TextAlignmentOptions.Center);
             Place(label.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -20f), new Vector2(-40f, 120f));
+                new Vector2(0f, -24f), new Vector2(-48f, 150f));
 
-            Button yes = CreateSmallButton("Yes", bg.transform, "Смотреть", 24);
+            Button yes = CreateSmallButton("Yes", box.transform, "Смотреть", 30);
             Place((RectTransform)yes.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(1f, 0f),
-                new Vector2(-10f, 20f), new Vector2(220f, 60f));
-            Button no = CreateSmallButton("No", bg.transform, "Нет", 24);
+                new Vector2(-12f, 28f), new Vector2(280f, 76f));
+            Button no = CreateSmallButton("No", box.transform, "Нет", 30);
             Place((RectTransform)no.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 0f),
-                new Vector2(10f, 20f), new Vector2(220f, 60f));
+                new Vector2(12f, 28f), new Vector2(280f, 76f));
 
-            AdPrompt prompt = bg.gameObject.AddComponent<AdPrompt>();
+            AdPrompt prompt = dim.gameObject.AddComponent<AdPrompt>();
             prompt.label = label;
             prompt.yesButton = yes;
             prompt.yesLabel = yes.GetComponentInChildren<TMP_Text>();
             prompt.noButton = no;
-            // Окно активно в сцене: AdPrompt сам скроет себя в Awake
+            dim.gameObject.SetActive(false);
             return prompt;
         }
+
 
         /// <summary>Шаблон строки списка: текст + кнопка справа + скрытая вторая кнопка (выключен).</summary>
         private static ListRow CreateListRowTemplate(Transform parent)
@@ -897,9 +973,10 @@ namespace TrainManager.EditorTools
         /// <summary>Светлая кнопка с тёмным текстом. Размер/позицию задаёт вызывающий.</summary>
         private static Button CreateSmallButton(string name, Transform parent, string text, float fontSize)
         {
-            Image image = CreateImage(name, parent, new Color(0.95f, 0.95f, 0.95f));
+            Image image = CreateImage(name, parent, Color.white);
             Button button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
+            SetOpaqueColors(button);
 
             TMP_Text label = CreateText("Text", image.transform, text, fontSize, TextAlignmentOptions.Center);
             label.color = new Color(0.1f, 0.1f, 0.1f);
@@ -910,7 +987,7 @@ namespace TrainManager.EditorTools
         /// <summary>Кнопка справа внизу панели. x — сдвиг от правого края.</summary>
         private static Button CreateButton(string name, Transform parent, string text, Vector2 offsetFromRight)
         {
-            Image image = CreateImage(name, parent, new Color(0.95f, 0.95f, 0.95f));
+            Image image = CreateImage(name, parent, Color.white);
             RectTransform rect = image.rectTransform;
             rect.anchorMin = new Vector2(1f, 0.5f);
             rect.anchorMax = new Vector2(1f, 0.5f);
@@ -920,6 +997,7 @@ namespace TrainManager.EditorTools
 
             Button button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
+            SetOpaqueColors(button);
 
             TMP_Text label = CreateText("Text", image.transform, text, 30, TextAlignmentOptions.Center);
             label.color = new Color(0.1f, 0.1f, 0.1f);

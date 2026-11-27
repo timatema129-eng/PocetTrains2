@@ -28,11 +28,11 @@ namespace TrainManager.UI
         private string signature;
         private float nextRefresh;
 
+        // Окно создаётся скрытым (сборщик сцены); Awake срабатывает при первом открытии
         private void Awake()
         {
             if (rowTemplate != null) rowTemplate.gameObject.SetActive(false);
             if (closeButton != null) closeButton.onClick.AddListener(() => gameObject.SetActive(false));
-            gameObject.SetActive(false);
         }
 
         public void Open(CityData target)

@@ -16,10 +16,10 @@ namespace TrainManager.UI
         public TMP_Text yesLabel;
         public Button noButton;
 
+        // Окно создаётся скрытым (сборщик сцены); Awake срабатывает при первом открытии
         private void Awake()
         {
             if (noButton != null) noButton.onClick.AddListener(Hide);
-            gameObject.SetActive(false);
         }
 
         /// <summary>Вопрос с двумя кнопками. onYes вызывается после закрытия окна.</summary>
