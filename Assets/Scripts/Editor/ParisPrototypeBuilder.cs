@@ -31,16 +31,23 @@ namespace TrainManager.EditorTools
         private const string DataRoot = "Assets/Data";
         private const string ScenePath = "Assets/Scenes/ParisPrototype.unity";
 
+        /// <summary>
+        /// Версия сборщика сцены. Меняется, когда меняется вид сцены: после Pull Unity сама предложит пересобрать сцену
+        /// (SceneVersionCheck), а номер виден в игре в верхней панели — так видно, свежая ли сцена.
+        /// </summary>
+        public const string LayoutVersion = "UI 2 (27.11)";
+        public const string LayoutVersionPref = "TrainManager.SceneLayoutVersion";
+
         [MenuItem("Tools/Train Manager/Build Paris Prototype Scene")]
         public static void Build() => Build(true);
 
         /// <summary>interactive = false — без диалогов (сборка APK в GitHub Actions).</summary>
-        public static void Build(bool interactive)
+        public static void Build(bool interactive, bool askOverwrite = true)
         {
             if (interactive && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 return;
 
-            if (interactive && AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null &&
+            if (interactive && askOverwrite && AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null &&
                 !EditorUtility.DisplayDialog("Train Manager",
                     "Сцена ParisPrototype уже существует. Пересоздать её?\n(Города и линии обновятся по файлу карты.)",
                     "Пересоздать", "Отмена"))
@@ -286,6 +293,11 @@ namespace TrainManager.EditorTools
             walletRect.pivot = new Vector2(1f, 0.5f);
             walletRect.anchoredPosition = new Vector2(-24f, 0f);
             walletRect.sizeDelta = new Vector2(680f, 0f);
+
+            // Номер версии сцены (мелко, по центру сверху): по нему видно, что сцена пересобрана после обновления
+            TMP_Text version = CreateText("LayoutVersion", topBar.transform, LayoutVersion, 16, TextAlignmentOptions.Bottom);
+            version.color = new Color(1f, 1f, 1f, 0.45f);
+            Place(version.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(300f, 22f));
             WalletText wallet = walletLabel.gameObject.AddComponent<WalletText>();
             wallet.root = root;
             wallet.text = walletLabel;
@@ -372,6 +384,7 @@ namespace TrainManager.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
 
+            EditorPrefs.SetString(LayoutVersionPref + "." + Application.dataPath, LayoutVersion);
             Selection.activeGameObject = rootGo;
             Debug.Log("[Train Manager] Сцена ParisPrototype создана: " + ScenePath + ". Нажми Play.");
         }
