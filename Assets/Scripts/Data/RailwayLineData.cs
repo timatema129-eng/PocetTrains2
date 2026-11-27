@@ -2,6 +2,14 @@ using UnityEngine;
 
 namespace TrainManager.Data
 {
+    /// <summary>Как рисуется линия: сплошная, пунктир или двухцветная (две полосы).</summary>
+    public enum LinePattern
+    {
+        Solid,
+        Dashed,
+        TwoTone
+    }
+
     /// <summary>
     /// Железнодорожная линия — участок дороги между двумя соседними городами.
     /// Линия не принадлежит поезду: по ней могут ехать несколько поездов.
@@ -27,6 +35,9 @@ namespace TrainManager.Data
         [Header("Visual")]
         [Tooltip("Цвет линии на карте. Только картинка, на логику не влияет")]
         public Color color = new Color(0.9f, 0.75f, 0.3f);
+        [Tooltip("Второй цвет (для двухцветной линии)")]
+        public Color secondaryColor = Color.white;
+        public LinePattern pattern = LinePattern.Solid;
 
         public bool IsValid => cityA != null && cityB != null && cityA != cityB && distance > 0f;
 

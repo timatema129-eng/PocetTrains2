@@ -255,6 +255,9 @@ namespace TrainManager.EditorTools
             network.map = map;
             network.planner = planner;
 
+            // Список поездов: кнопка «Поезда» под статусом и окно со списком
+            CreateTrainList(canvasT, root, selection, navigator, window);
+
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
             interaction.map = map;
@@ -394,18 +397,51 @@ namespace TrainManager.EditorTools
         {
             if (data == null || !data.IsValid) return;
 
+            const float width = 5f;
             Vector2 a = data.cityA.mapPosition;
             Vector2 b = data.cityB.mapPosition;
-            Image line = CreateImage("Line_" + data.lineId, map, data.color);
-            line.raycastTarget = false;
-            RectTransform rect = line.rectTransform;
             Vector2 delta = b - a;
-            rect.sizeDelta = new Vector2(delta.magnitude, 4f);
+            float length = delta.magnitude;
+
+            // Контейнер, повёрнутый вдоль линии; внутри — полосы/штрихи
+            var go = new GameObject("Line_" + data.lineId, typeof(RectTransform));
+            go.transform.SetParent(map, false);
+            var rect = (RectTransform)go.transform;
+            rect.sizeDelta = new Vector2(length, width);
             rect.anchoredPosition = (a + b) * 0.5f;
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
 
-            LineView view = line.gameObject.AddComponent<LineView>();
+            switch (data.pattern)
+            {
+                case LinePattern.Dashed:
+                {
+                    const float dash = 10f, gap = 6f;
+                    for (float x = -length / 2f; x < length / 2f; x += dash + gap)
+                    {
+                        float len = Mathf.Min(dash, length / 2f - x);
+                        AddStripe(go.transform, data.color, new Vector2(x + len / 2f, 0f), new Vector2(len, width));
+                    }
+                    break;
+                }
+                case LinePattern.TwoTone:
+                    AddStripe(go.transform, data.color, new Vector2(0f, width / 4f), new Vector2(length, width / 2f));
+                    AddStripe(go.transform, data.secondaryColor, new Vector2(0f, -width / 4f), new Vector2(length, width / 2f));
+                    break;
+                default:
+                    AddStripe(go.transform, data.color, Vector2.zero, new Vector2(length, width));
+                    break;
+            }
+
+            LineView view = go.AddComponent<LineView>();
             view.line = data;
+        }
+
+        private static void AddStripe(Transform parent, Color color, Vector2 position, Vector2 size)
+        {
+            Image stripe = CreateImage("Stripe", parent, color);
+            stripe.raycastTarget = false;
+            stripe.rectTransform.anchoredPosition = position;
+            stripe.rectTransform.sizeDelta = size;
         }
 
         private static StationWindow CreateStationWindow(Transform canvasT, GameRoot root, TrainSelection selection,
@@ -528,6 +564,74 @@ namespace TrainManager.EditorTools
             window.rowTemplate = row;
             go.SetActive(false);
             return window;
+        }
+
+        private static void CreateTrainList(Transform canvasT, GameRoot root, TrainSelection selection,
+            MapNavigator navigator, StationWindow stationWindow)
+        {
+            Button toggle = CreateSmallButton("TrainsButton", canvasT, "Поезда", 24);
+            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(40f, -220f), new Vector2(200f, 56f));
+
+            var go = new GameObject("TrainList", typeof(RectTransform));
+            go.transform.SetParent(canvasT, false);
+            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(40f, -286f), new Vector2(620f, 0f));
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
+            var layout = go.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 10, 10);
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = go.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            ListRow row = CreateListRowTemplate(go.transform);
+
+            TrainListWindow list = go.AddComponent<TrainListWindow>();
+            list.root = root;
+            list.selection = selection;
+            list.navigator = navigator;
+            list.stationWindow = stationWindow;
+            list.toggleButton = toggle;
+            list.listContainer = (RectTransform)go.transform;
+            list.rowTemplate = row;
+            // Окно остаётся активным в сцене: TrainListWindow сам скроет его в Awake и повесит кнопку
+        }
+
+        /// <summary>Шаблон строки списка: текст + кнопка справа (выключен).</summary>
+        private static ListRow CreateListRowTemplate(Transform parent)
+        {
+            var rowGo = new GameObject("RowTemplate", typeof(RectTransform));
+            rowGo.transform.SetParent(parent, false);
+            var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.spacing = 8f;
+            rowLayout.childAlignment = TextAnchor.MiddleLeft;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = false;
+            rowGo.AddComponent<LayoutElement>().minHeight = 44f;
+
+            TMP_Text rowLabel = CreateText("Label", rowGo.transform, "", 21, TextAlignmentOptions.MidlineLeft);
+            var labelElement = rowLabel.gameObject.AddComponent<LayoutElement>();
+            labelElement.flexibleWidth = 1f;
+            labelElement.preferredWidth = 10f;
+
+            Button rowButton = CreateSmallButton("Button", rowGo.transform, "", 20);
+            var buttonElement = rowButton.gameObject.AddComponent<LayoutElement>();
+            buttonElement.preferredWidth = 170f;
+            buttonElement.preferredHeight = 42f;
+
+            ListRow row = rowGo.AddComponent<ListRow>();
+            row.label = rowLabel;
+            row.button = rowButton;
+            row.buttonLabel = rowButton.GetComponentInChildren<TMP_Text>();
+            rowGo.SetActive(false);
+            return row;
         }
 
         private static void Place(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,

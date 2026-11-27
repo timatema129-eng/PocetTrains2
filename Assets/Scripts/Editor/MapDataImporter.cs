@@ -110,10 +110,11 @@ namespace TrainManager.EditorTools
                 line.cityA = a;
                 line.cityB = b;
                 line.distance = l.distance > 0 ? (float)l.distance : GeoDistanceRounded(a, b);
-                line.color = AutoColor(lines.Count);
                 EditorUtility.SetDirty(line);
                 lines.Add(line);
             }
+
+            AssignLineStyles(lines);
 
             GameDatabase db = LoadOrCreate<GameDatabase>(DatabasePath);
             db.regions = regions;
@@ -245,11 +246,83 @@ namespace TrainManager.EditorTools
             return (float)Math.Max(10.0, Math.Round(km / 10.0) * 10.0);
         }
 
-        /// <summary>Разные хорошо различимые цвета линий (золотое сечение по оттенку).</summary>
-        private static Color AutoColor(int index)
+        // ================= Цвета линий =================
+
+        private struct LineStyle
         {
-            float hue = (index * 0.618034f) % 1f;
-            return Color.HSVToRGB(hue, 0.6f, 0.95f);
+            public Color primary;
+            public Color secondary;
+            public LinePattern pattern;
+        }
+
+        /// <summary>
+        /// Палитра стилей линий: 24 оттенка × 3 варианта яркости = 72 цвета, каждый — сплошной и пунктиром,
+        /// плюс двухцветные сочетания. Итого больше 300 различимых стилей (в референсе было ~20 цветов).
+        /// </summary>
+        private static List<LineStyle> BuildPalette()
+        {
+            const int hues = 24;
+            var shades = new[] { new Vector2(0.75f, 0.95f), new Vector2(0.45f, 0.85f), new Vector2(0.9f, 0.65f) };
+            var colors = new List<Color>();
+            foreach (Vector2 sv in shades)
+            {
+                for (int i = 0; i < hues; i++)
+                {
+                    // Порядок оттенков через золотое сечение — соседние в палитре цвета сильно отличаются
+                    float hue = (i * 0.618034f) % 1f;
+                    colors.Add(Color.HSVToRGB(hue, sv.x, sv.y));
+                }
+            }
+
+            var palette = new List<LineStyle>();
+            foreach (Color c in colors) palette.Add(new LineStyle { primary = c, secondary = c, pattern = LinePattern.Solid });
+            foreach (Color c in colors) palette.Add(new LineStyle { primary = c, secondary = c, pattern = LinePattern.Dashed });
+            for (int i = 0; i < colors.Count; i++)
+            {
+                // Второй цвет — примерно противоположный оттенок
+                Color second = colors[(i + hues / 2 + 5) % colors.Count];
+                palette.Add(new LineStyle { primary = colors[i], secondary = second, pattern = LinePattern.TwoTone });
+                palette.Add(new LineStyle { primary = second, secondary = colors[i], pattern = LinePattern.TwoTone });
+            }
+            return palette;
+        }
+
+        /// <summary>
+        /// Раздать линиям стили: у линий с общим городом стили всегда разные,
+        /// и каждый стиль используется как можно реже (жадная раскраска графа).
+        /// </summary>
+        private static void AssignLineStyles(List<RailwayLineData> lines)
+        {
+            List<LineStyle> palette = BuildPalette();
+            var used = new int[palette.Count];
+            var styleOf = new Dictionary<RailwayLineData, int>();
+
+            foreach (RailwayLineData line in lines)
+            {
+                var forbidden = new HashSet<int>();
+                foreach (var pair in styleOf)
+                {
+                    RailwayLineData other = pair.Key;
+                    if (other.cityA == line.cityA || other.cityA == line.cityB ||
+                        other.cityB == line.cityA || other.cityB == line.cityB)
+                        forbidden.Add(pair.Value);
+                }
+
+                int best = -1;
+                for (int i = 0; i < palette.Count; i++)
+                {
+                    if (forbidden.Contains(i)) continue;
+                    if (best < 0 || used[i] < used[best]) best = i;
+                }
+                if (best < 0) best = 0;
+
+                used[best]++;
+                styleOf[line] = best;
+                line.color = palette[best].primary;
+                line.secondaryColor = palette[best].secondary;
+                line.pattern = palette[best].pattern;
+                EditorUtility.SetDirty(line);
+            }
         }
 
         private static void Need(string[] p, int count)

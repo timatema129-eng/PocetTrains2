@@ -4,25 +4,36 @@ using TrainManager.Data;
 
 namespace TrainManager.Map
 {
-    /// <summary>Линия на карте. Цвет — из RailwayLineData; некупленная линия рисуется тусклой.</summary>
-    [RequireComponent(typeof(Image))]
+    /// <summary>
+    /// Линия на карте. Состоит из одной или нескольких картинок (сплошная, пунктир, две полосы).
+    /// Цвета — из RailwayLineData; некупленная линия рисуется тусклой.
+    /// </summary>
     public class LineView : MonoBehaviour
     {
         public RailwayLineData line;
 
-        private Image image;
+        private Image[] images;
+        private Color[] baseColors;
+        private int ownedState = -1;
 
         private void Awake()
         {
-            image = GetComponent<Image>();
+            images = GetComponentsInChildren<Image>(true);
+            baseColors = new Color[images.Length];
+            for (int i = 0; i < images.Length; i++) baseColors[i] = images[i].color;
         }
 
         public void SetOwned(bool owned)
         {
-            if (image == null || line == null) return;
+            int newState = owned ? 1 : 0;
+            if (images == null || newState == ownedState) return;
+            ownedState = newState;
 
-            Color c = line.color;
-            image.color = owned ? c : new Color(c.r * 0.6f, c.g * 0.6f, c.b * 0.6f, 0.25f);
+            for (int i = 0; i < images.Length; i++)
+            {
+                Color c = baseColors[i];
+                images[i].color = owned ? c : new Color(c.r * 0.6f, c.g * 0.6f, c.b * 0.6f, 0.25f);
+            }
         }
     }
 }
