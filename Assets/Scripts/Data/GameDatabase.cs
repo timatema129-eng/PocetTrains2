@@ -80,10 +80,37 @@ namespace TrainManager.Data
         [Tooltip("На сколько долларов дорожает каждое следующее расширение (0 — всегда одна цена)")]
         [Min(0)] public int stationExpandPriceStep = 0;
 
+        [Header("Boxes and parts (черновик баланса)")]
+        [Tooltip("Три бокса: обычный, редкий, эпический. Открываются только за доллары")]
+        public List<BoxConfig> boxes = new List<BoxConfig>
+        {
+            new BoxConfig { boxId = "box_common", displayName = "Обычный бокс", rarity = TrainRarity.Common, priceDollars = 5 },
+            new BoxConfig { boxId = "box_rare", displayName = "Редкий бокс", rarity = TrainRarity.Rare, priceDollars = 20 },
+            new BoxConfig { boxId = "box_epic", displayName = "Эпический бокс", rarity = TrainRarity.Epic, priceDollars = 100 },
+        };
+        [Tooltip("Сколько лома даёт разборка поезда за каждую деталь, нужную для его сборки")]
+        [Min(0)] public int scrapPerPart = 1;
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]
         public float secondsPerTimeUnit = 1f;
+
+        public BoxConfig GetBox(string boxId)
+        {
+            foreach (BoxConfig b in boxes)
+                if (b != null && b.boxId == boxId) return b;
+            return null;
+        }
+
+        /// <summary>Все модели поездов этой редкости (из них выпадают детали бокса).</summary>
+        public List<TrainData> GetTrainsOfRarity(TrainRarity rarity)
+        {
+            var result = new List<TrainData>();
+            foreach (TrainData t in trains)
+                if (t != null && t.rarity == rarity && !string.IsNullOrEmpty(t.trainId)) result.Add(t);
+            return result;
+        }
 
         private Dictionary<string, CityData> cityById;
         private Dictionary<string, RouteData> routeById;

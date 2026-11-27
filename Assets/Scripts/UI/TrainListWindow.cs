@@ -12,6 +12,7 @@ namespace TrainManager.UI
     /// <summary>
     /// Список всех поездов игрока: где каждый и что делает. «Показать» — выбрать поезд,
     /// навести на него карту и (если он стоит) открыть окно его станции.
+    /// «Разобрать» — разобрать поезд в лом (только стоящий, без вагонов, не последний).
     /// Открывается кнопкой «Поезда».
     /// </summary>
     public class TrainListWindow : MonoBehaviour
@@ -62,6 +63,8 @@ namespace TrainManager.UI
             {
                 TrainInstance train = root.State.FindTrain(rowTrainIds[i]);
                 if (train != null && rows[i].label != null) rows[i].label.text = Describe(train);
+                if (train != null && rows[i].button2 != null)
+                    rows[i].button2.interactable = root.Parts.CanDisassemble(train, out _);
             }
         }
 
@@ -78,6 +81,7 @@ namespace TrainManager.UI
                 ListRow row = Instantiate(rowTemplate, listContainer);
                 row.gameObject.SetActive(true);
                 row.Set(Describe(train), "Показать", () => Show(id));
+                row.SetSecond("Разобрать", () => root.Parts.TryDisassemble(root.State.FindTrain(id)));
                 rows.Add(row);
                 rowTrainIds.Add(id);
             }
@@ -117,7 +121,7 @@ namespace TrainManager.UI
                 CityData city = root.Database.GetCity(train.currentCityId);
                 where = $"{(city != null ? city.displayName : "?")}, {(train.state == TrainState.OutOfFuel ? "нет топлива" : "стоит")}";
             }
-            return $"{name}\n{where} · вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}";
+            return $"{name} · лом при разборке {root.Parts.GetScrapFor(train)}\n{where} · вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}";
         }
     }
 }

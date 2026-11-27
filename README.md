@@ -9,17 +9,18 @@ Unity **6000.3.12f1 (6.3 LTS)**, URP 2D, C#, Unity UI + TextMeshPro, новый 
 Assets/
 ├── Scripts/
 │   ├── Data/     Конфиги (ScriptableObject): RegionData, CityData, RailwayLineData, RouteData,
-│   │             TrainData, WagonData и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
+│   │             TrainData, WagonData, BoxConfig, LinePalette и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
 │   ├── Core/     Фундамент: GameRoot (точка входа), GameState (прогресс игрока),
 │   │             TrainInstance (поезд игрока), TrainService (правила движения),
 │   │             WalletService (монеты и доллары), WagonService (вагоны, склад, выгрузка),
-│   │             FuelService (топливо, толчок, заправка), NetworkService (регионы и купленные линии),
+│   │             FuelService (топливо, толчок, заправка), NetworkService (регионы, линии, пути, цвета),
+│   │             PartsService (боксы, детали, сборка, разборка в лом),
 │   │             SaveService (сохранение), GameClock (реальное время), GameEvents (события)
 │   ├── Trains/   TrainState, TrainView (картинка поезда), TrainLayer (картинки всех поездов)
 │   ├── Map/      MapView, StationView, LineView, MapNetworkView, MapNavigator (перетаскивание и масштаб)
 │   ├── UI/       StationWindow (окно станции), RoutePlanner (режим маршрута), MapInteraction,
 │   │             TrainSelection (выбранный поезд), TrainListWindow (список поездов), ListRow, WalletText,
-│   │             TrainStatusText, RouteButton
+│   │             BoxWindow (боксы и сборка), TrainStatusText, RouteButton
 │   └── Editor/   MapDataImporter (карта из текста), ParisPrototypeBuilder (сцена)
 ├── Data/
 │   ├── MapSource/*.txt   ← карта мира: по файлу на континент + _World.txt. Правится руками
@@ -87,6 +88,13 @@ Assets/
   72 цвета, пунктир и двухцветные, у соседних линий разные — их раздаёт Import Map Data), но кнопкой «Цвет» игрок
   перебирает палитру; после последнего цвета линия возвращается к цвету по умолчанию. Кнопка «Поезда» слева —
   список всех поездов, «Показать» наводит карту на поезд и открывает его станцию.
+- **Боксы и сборка (Этап 8):** кнопка «Боксы» слева. Три бокса — обычный, редкий, эпический (5 / 20 / 100 $,
+  черновик в GameDatabase → Boxes). Бокс даёт 1 деталь случайной модели своей редкости: «Стандарт» (3 детали),
+  «Экспресс» (8), «Маглев» (15). Детали копятся без лимита; когда набрано — «Собрать», поезд появится в Париже.
+  В списке «Поезда» кнопка «Разобрать» превращает поезд в лом (1 лом за каждую деталь модели — черновик).
+  Разобрать можно только стоящий поезд без вагонов и не последний. Поломок и ремонта пока нет — ждём правила.
+  Для теста: в новой игре 20 $ — хватит на 4 обычных бокса (3 детали «Стандарта» → сборка).
+  Новые модели появятся после **Build Paris Prototype** (пересоздать сцену).
 - **Сохранение:** останови Play, пока поезд едет, подожди и снова нажми Play. Поезд будет там,
   куда успел доехать за это время.
 - Цены и доход — черновик, меняются в `Assets/Data/GameDatabase` (раздел Economy).

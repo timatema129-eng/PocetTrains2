@@ -45,6 +45,17 @@ namespace TrainManager.Core
         public void RaiseRegionUnlocked(RegionData region) => RegionUnlocked?.Invoke(region);
         public void RaiseLineBought(RailwayLineData line) => LineBought?.Invoke(line);
 
+        /// <summary>Изменились детали или лом (бокс, сборка, разборка).</summary>
+        public event Action PartsChanged;
+        /// <summary>Собран новый поезд.</summary>
+        public event Action<TrainInstance> TrainAssembled;
+        /// <summary>Поезд разобран (уже удалён из GameState).</summary>
+        public event Action<TrainInstance> TrainDisassembled;
+
+        public void RaisePartsChanged() => PartsChanged?.Invoke();
+        public void RaiseTrainAssembled(TrainInstance train) => TrainAssembled?.Invoke(train);
+        public void RaiseTrainDisassembled(TrainInstance train) => TrainDisassembled?.Invoke(train);
+
         /// <summary>У линии изменились пути или цвет.</summary>
         public event Action<RailwayLineData> LineChanged;
 

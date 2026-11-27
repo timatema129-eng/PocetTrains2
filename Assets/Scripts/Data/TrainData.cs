@@ -45,6 +45,7 @@ namespace TrainManager.Data
         [Min(0)] public int fuelPerFuelWagon = 0;
 
         [Header("Assembly")]
+        [Tooltip("Сколько одинаковых деталей нужно для сборки (обычный 3 … крутой до 15)")]
         [Min(1)] public int partsRequiredForAssembly = 3;
 
         [Header("Visual")]

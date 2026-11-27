@@ -62,6 +62,35 @@ namespace TrainManager.EditorTools
             });
             AddUnique(database.trains, standard);
 
+            // Редкий и эпический поезда. Крутой (эпический) — числа Артема: 200 / 16 / 400 / двигатель 1 / топливных 4,
+            // 15 деталей. Средний (редкий) — 100 / 12 / 150 из прежней модели TrainData, 8 деталей (уточнить)
+            TrainData rare = LoadOrCreate<TrainData>(DataRoot + "/Trains/Train_Express.asset", t =>
+            {
+                t.trainId = "train_express"; t.displayName = "Экспресс"; t.rarity = TrainRarity.Rare;
+                t.baseSpeed = 100f; t.maxWagons = 12; t.maxFuel = 150; t.partsRequiredForAssembly = 8;
+                t.mainEngines = 1; t.maxExtraEngines = 1; t.wagonsPerExtraEngine = 3;
+                t.maxFuelWagons = 2; t.fuelPerFuelWagon = 40;
+            });
+            AddUnique(database.trains, rare);
+            TrainData epic = LoadOrCreate<TrainData>(DataRoot + "/Trains/Train_Maglev.asset", t =>
+            {
+                t.trainId = "train_maglev"; t.displayName = "Маглев"; t.rarity = TrainRarity.Epic;
+                t.baseSpeed = 200f; t.maxWagons = 16; t.maxFuel = 400; t.partsRequiredForAssembly = 15;
+                t.mainEngines = 1; t.maxExtraEngines = 1; t.wagonsPerExtraEngine = 4;
+                t.maxFuelWagons = 4; t.fuelPerFuelWagon = 100;
+            });
+            AddUnique(database.trains, epic);
+
+            if (database.boxes == null || database.boxes.Count == 0)
+            {
+                database.boxes = new System.Collections.Generic.List<BoxConfig>
+                {
+                    new BoxConfig { boxId = "box_common", displayName = "Обычный бокс", rarity = TrainRarity.Common, priceDollars = 5 },
+                    new BoxConfig { boxId = "box_rare", displayName = "Редкий бокс", rarity = TrainRarity.Rare, priceDollars = 20 },
+                    new BoxConfig { boxId = "box_epic", displayName = "Эпический бокс", rarity = TrainRarity.Epic, priceDollars = 100 },
+                };
+            }
+
             EnsureFolder(DataRoot + "/Wagons");
             WagonData cargo = LoadOrCreate<WagonData>(DataRoot + "/Wagons/Wagon_Cargo.asset", w =>
             {
@@ -257,6 +286,7 @@ namespace TrainManager.EditorTools
 
             // Список поездов: кнопка «Поезда» под статусом и окно со списком
             CreateTrainList(canvasT, root, selection, navigator, window);
+            CreateBoxWindow(canvasT, root);
 
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
@@ -575,6 +605,38 @@ namespace TrainManager.EditorTools
             list.listContainer = (RectTransform)go.transform;
             list.rowTemplate = row;
             // Окно остаётся активным в сцене: TrainListWindow сам скроет его в Awake и повесит кнопку
+        }
+
+        private static void CreateBoxWindow(Transform canvasT, GameRoot root)
+        {
+            Button toggle = CreateSmallButton("BoxesButton", canvasT, "Боксы", 24);
+            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(250f, -220f), new Vector2(200f, 56f));
+
+            var go = new GameObject("BoxWindow", typeof(RectTransform));
+            go.transform.SetParent(canvasT, false);
+            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(40f, -286f), new Vector2(680f, 0f));
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
+            var layout = go.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 10, 10);
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = go.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            ListRow row = CreateListRowTemplate(go.transform);
+
+            BoxWindow window = go.AddComponent<BoxWindow>();
+            window.root = root;
+            window.toggleButton = toggle;
+            window.listContainer = (RectTransform)go.transform;
+            window.rowTemplate = row;
+            // Окно остаётся активным в сцене: BoxWindow сам скроет его в Awake и повесит кнопку
         }
 
         /// <summary>Шаблон строки списка: текст + кнопка справа + скрытая вторая кнопка (выключен).</summary>
