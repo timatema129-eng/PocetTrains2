@@ -79,6 +79,23 @@ namespace TrainManager.Core
             }
         }
 
+        /// <summary>Отложить сохранение в сторону (save.json + suffix), чтобы начать заново, не теряя файл.</summary>
+        public void MoveAside(string suffix)
+        {
+            string path = SavePath;
+            if (!File.Exists(path)) return;
+            try
+            {
+                string target = path + suffix;
+                if (File.Exists(target)) File.Delete(target);
+                File.Move(path, target);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Save] Не удалось отложить сохранение: {e.Message}");
+            }
+        }
+
         public static void Delete()
         {
             if (File.Exists(SavePath)) File.Delete(SavePath);

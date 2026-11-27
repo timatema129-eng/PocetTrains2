@@ -35,7 +35,7 @@ namespace TrainManager.EditorTools
         /// Версия сборщика сцены. Меняется, когда меняется вид сцены: после Pull Unity сама предложит пересобрать сцену
         /// (SceneVersionCheck), а номер виден в игре в верхней панели — так видно, свежая ли сцена.
         /// </summary>
-        public const string LayoutVersion = "UI 2 (27.11)";
+        public const string LayoutVersion = "UI 3 (27.11)";
         public const string LayoutVersionPref = "TrainManager.SceneLayoutVersion";
 
         [MenuItem("Tools/Train Manager/Build Paris Prototype Scene")]
@@ -136,6 +136,8 @@ namespace TrainManager.EditorTools
             }
             if (database.startCity == null) database.startCity = paris;
             if (database.startTrain == null) database.startTrain = standard;
+            // Для теста — три стартовых поезда (1 + 2 дополнительных). Работает для новой игры (Tools → Delete Save)
+            if (database.extraStartTrainsForTesting < 2) database.extraStartTrainsForTesting = 2;
             database.ClearCache();
             EditorUtility.SetDirty(database);
             AssetDatabase.SaveAssets();
@@ -216,8 +218,11 @@ namespace TrainManager.EditorTools
             foreach (RailwayLineData line in database.lines)
                 CreateLine(line, mapGo.transform);
 
+            // Станции: круглые точки; названия раскладываются так, чтобы не налезать (часть видна только при приближении)
+            Sprite dotSprite = LoadSprite(DotSpritePath, 128);
+            Dictionary<CityData, (int side, float minZoom)> labels = LayoutLabels(database.cities);
             foreach (CityData city in database.cities)
-                CreateStation(city, mapGo.transform);
+                if (city != null) CreateStation(city, mapGo.transform, dotSprite, labels[city]);
 
             // Выбранный поезд (один объект на сцене)
             var selectionGo = new GameObject("TrainSelection");
@@ -264,6 +269,11 @@ namespace TrainManager.EditorTools
             navigator.scroll = scroll;
             navigator.content = mapRect;
             navigator.root = root;
+            navigator.startScale = 0.9f;
+
+            StationLabelZoom labelZoom = mapGo.AddComponent<StationLabelZoom>();
+            labelZoom.map = map;
+            labelZoom.content = mapRect;
 
             // Верхняя панель: статус выбранного поезда слева, монеты и доллары справа
             Image topBar = CreateImage("TopBar", canvasT, PanelColor);
@@ -372,6 +382,20 @@ namespace TrainManager.EditorTools
                 new Vector2(30f, -TopBarHeight - 20f), new Vector2(140f, 64f));
             prizeButton.gameObject.SetActive(false);
             prompt.transform.SetAsLastSibling();
+
+            // Ошибки — красной плашкой на экране (на телефоне Console не видно)
+            Image errorPanel = CreateImage("ErrorPanel", canvasT, new Color(0.55f, 0.08f, 0.08f, 0.95f));
+            Place(errorPanel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -TopBarHeight - 6f), new Vector2(-40f, 150f));
+            errorPanel.gameObject.AddComponent<Button>().targetGraphic = errorPanel;
+            TMP_Text errorText = CreateText("Text", errorPanel.transform, "", 20, TextAlignmentOptions.TopLeft);
+            Stretch(errorText.rectTransform);
+            errorText.rectTransform.offsetMin = new Vector2(16f, 8f);
+            errorText.rectTransform.offsetMax = new Vector2(-16f, -8f);
+            errorText.overflowMode = TextOverflowModes.Truncate;
+            ErrorOverlay errors = canvasGo.AddComponent<ErrorOverlay>();
+            errors.panel = errorPanel.gameObject;
+            errors.text = errorText;
 
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
@@ -490,33 +514,100 @@ namespace TrainManager.EditorTools
             rect.offsetMax = Vector2.zero;
         }
 
-        private static void CreateStation(CityData city, Transform map)
+        private const string DotSpritePath = "Assets/Art/UI/station_dot.png";
+        private const float DotSize = 22f;
+        private const float LabelHeight = 24f;
+        private const float LabelFont = 18f;
+        // Пороги масштаба, начиная с которых видно название (см. StationLabelZoom)
+        private static readonly float[] LabelZoomLevels = { 0.25f, 0.35f, 0.5f, 0.7f, 1f, 1.4f, 2f };
+
+        private static float LabelWidth(string text) => (text != null ? text.Length : 0) * 10.5f + 10f;
+
+        /// <summary>
+        /// Раскладка названий городов. Точка и надпись держат постоянный размер на экране (StationLabelZoom),
+        /// поэтому при отдалении надписи сближаются. Для каждого города ищем наименьший масштаб и сторону
+        /// (снизу/сверху/справа/слева), где надпись не задевает точки и уже размещённые надписи.
+        /// </summary>
+        private static Dictionary<CityData, (int side, float minZoom)> LayoutLabels(List<CityData> cities)
+        {
+            var result = new Dictionary<CityData, (int side, float minZoom)>();
+            var placed = new List<(CityData city, int side, Vector2 size)>();
+            var all = cities.FindAll(c => c != null);
+
+            foreach (float level in LabelZoomLevels)
+            {
+                float k = StationLabelZoom.ScreenFactor(level); // во сколько раз точка меньше обычного
+                foreach (CityData city in all)
+                {
+                    if (result.ContainsKey(city)) continue;
+                    var size = new Vector2(LabelWidth(city.displayName), LabelHeight);
+                    for (int side = 0; side < 4; side++)
+                    {
+                        Rect rect = ScreenRect(city.mapPosition * level + StationLabelZoom.LabelOffset(side, size, DotSize, k), size);
+                        bool free = true;
+                        foreach (CityData other in all)
+                        {
+                            if (other == city) continue;
+                            if (rect.Overlaps(ScreenRect(other.mapPosition * level, Vector2.one * DotSize * k))) { free = false; break; }
+                        }
+                        if (free)
+                        {
+                            foreach (var p in placed)
+                            {
+                                Vector2 center = p.city.mapPosition * level + StationLabelZoom.LabelOffset(p.side, p.size, DotSize, k);
+                                if (rect.Overlaps(ScreenRect(center, p.size))) { free = false; break; }
+                            }
+                        }
+                        if (!free) continue;
+                        result[city] = (side, level);
+                        placed.Add((city, side, size));
+                        break;
+                    }
+                }
+            }
+
+            // Совсем тесные места — название видно только при максимальном приближении
+            float last = LabelZoomLevels[LabelZoomLevels.Length - 1] + 0.3f;
+            foreach (CityData city in all)
+                if (!result.ContainsKey(city))
+                    result[city] = (0, last);
+            return result;
+        }
+
+        private static Rect ScreenRect(Vector2 center, Vector2 size) => new Rect(center - size / 2f, size);
+
+        private static void CreateStation(CityData city, Transform map, Sprite dotSprite, (int side, float minZoom) labelPlace)
         {
             Image dot = CreateImage("Station_" + city.cityId, map, StationView.NormalColor);
-            dot.rectTransform.sizeDelta = new Vector2(24f, 24f);
+            dot.sprite = dotSprite; // круг с тёмной обводкой; цвет — подсветка
+            dot.rectTransform.sizeDelta = new Vector2(DotSize, DotSize);
             dot.rectTransform.anchoredPosition = city.mapPosition;
             Button button = dot.gameObject.AddComponent<Button>();
             button.targetGraphic = dot;
             button.transition = Selectable.Transition.None; // цвет меняет RoutePlanner (подсветка)
 
-            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 20, TextAlignmentOptions.Center);
+            TMP_Text label = CreateText("Label", dot.transform, city.displayName, LabelFont, TextAlignmentOptions.Center);
             label.fontStyle = FontStyles.Bold;
             label.outlineWidth = 0.25f;
             label.outlineColor = Color.black;
-            label.rectTransform.anchoredPosition = new Vector2(0f, -24f);
-            label.rectTransform.sizeDelta = new Vector2(220f, 26f);
+            label.enableWordWrapping = false;
+            label.rectTransform.anchoredPosition = StationLabelZoom.LabelOffset(labelPlace.side,
+                new Vector2(LabelWidth(city.displayName), LabelHeight), DotSize, 1f); // на ходу пересчитывает StationLabelZoom
+            label.rectTransform.sizeDelta = new Vector2(LabelWidth(city.displayName), LabelHeight);
 
             StationView view = dot.gameObject.AddComponent<StationView>();
             view.city = city;
             view.label = label;
             view.dot = dot;
+            view.labelMinZoom = labelPlace.minZoom;
+            view.labelSide = labelPlace.side;
         }
 
         private static void CreateLine(RailwayLineData data, Transform map)
         {
             if (data == null || !data.IsValid) return;
 
-            const float width = 8f;
+            const float width = 10f;
             Vector2 a = data.cityA.mapPosition;
             Vector2 b = data.cityB.mapPosition;
             Vector2 delta = b - a;
@@ -671,10 +762,10 @@ namespace TrainManager.EditorTools
 
         private const string WorldMapPath = "Assets/Art/Map/world_map.jpg";
         private const string TrainsArt = "Assets/Art/Trains/";
-        // Карта мира подогнана под проекцию городов (map; 0; 10; 24; 0; -635 в _World.txt):
+        // Карта мира подогнана под проекцию городов (map; 0; 10; 32; 0; -847 в _World.txt; при смене масштаба размер и сдвиг ×масштаб/24):
         // долгота −170…190, широта −58…77
-        private static readonly Vector2 WorldMapSize = new Vector2(8640f, 4704.6f);
-        private static readonly Vector2 WorldMapCenter = new Vector2(0f, -0.4f);
+        private static readonly Vector2 WorldMapSize = new Vector2(11520f, 6272.8f);
+        private static readonly Vector2 WorldMapCenter = new Vector2(0f, -0.9f);
 
         /// <summary>Окно справа между верхней и нижней панелями.</summary>
         private static void PlaceSidePanel(RectTransform rect)

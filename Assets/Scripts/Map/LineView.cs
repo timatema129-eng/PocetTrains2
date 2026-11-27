@@ -13,6 +13,8 @@ namespace TrainManager.Map
     {
         public RailwayLineData line;
 
+        public static readonly Color UnownedColor = new Color(0.12f, 0.12f, 0.16f, 0.5f);
+
         private Image[] images;
         private Color[] baseColors;
         private bool[] isPrimary;
@@ -53,7 +55,8 @@ namespace TrainManager.Map
             for (int i = 0; i < images.Length; i++)
             {
                 Color c = isPrimary[i] ? new Color(primary.r, primary.g, primary.b, baseColors[i].a) : baseColors[i];
-                images[i].color = owned ? c : new Color(c.r * 0.6f, c.g * 0.6f, c.b * 0.6f, 0.25f);
+                // Некупленная — тусклая тёмная полупрозрачная (видна и на суше, и на море), купленная — своим цветом
+                images[i].color = owned ? c : UnownedColor;
             }
         }
 

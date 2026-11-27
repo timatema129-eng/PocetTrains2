@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using TrainManager.Data;
@@ -34,7 +35,8 @@ namespace TrainManager.Core
         public MetroService Metro { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
-        public bool IsReady => Trains != null;
+        public bool IsReady => ready && Trains != null;
+        private bool ready;
 
         private IGameClock clock;
         private SaveService saves;
@@ -50,13 +52,38 @@ namespace TrainManager.Core
 
             clock = new SystemGameClock();
             saves = new SaveService(clock);
-            Events = new GameEvents();
 
-            State = saves.Load();
+            GameState loaded = saves.Load();
+            try
+            {
+                Init(loaded);
+            }
+            catch (Exception e)
+            {
+                // Сохранение от старой версии не подошло: откладываем его и начинаем заново, чтобы игра не стояла «пустой»
+                Debug.LogException(e);
+                Debug.LogError("[Game] Не удалось запустить игру с сохранением — оно отложено (save.json.failed), начинается новая игра");
+                Trains = null;
+                saves.MoveAside(".failed");
+                try { Init(null); }
+                catch (Exception e2)
+                {
+                    Trains = null; // IsReady = false: экраны не трогают полусозданные сервисы
+                    Debug.LogException(e2);
+                    Debug.LogError("[Game] Новая игра тоже не запустилась — пришли эту ошибку");
+                }
+            }
+        }
+
+        private void Init(GameState loaded)
+        {
+            Events = new GameEvents();
+            State = loaded;
             bool isNewGame = State == null;
             if (isNewGame)
                 State = new GameState { createdUnixMs = clock.NowUnixMs };
 
+            Trains = null;
             Wallet = new WalletService(State, Events);
             Fuel = new FuelService(State, database, Wallet);
             Network = new NetworkService(State, database, Wallet, Events);
@@ -101,6 +128,7 @@ namespace TrainManager.Core
             Quests.Tick();
             Metro.Tick(); // офлайн-доход метро (10% от обычного)
 
+            ready = true;
             Save();
         }
 
@@ -245,6 +273,7 @@ namespace TrainManager.Core
 
         private void Update()
         {
+            if (!IsReady) return;
             Trains.Tick();
             Quests.Tick();
             Metro.Tick();
@@ -262,7 +291,7 @@ namespace TrainManager.Core
 
         public void Save()
         {
-            if (saves != null && State != null)
+            if (saves != null && State != null && IsReady)
                 saves.Save(State);
         }
     }

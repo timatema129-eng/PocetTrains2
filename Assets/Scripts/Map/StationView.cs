@@ -19,6 +19,11 @@ namespace TrainManager.Map
         [Tooltip("Кружок станции (для подсветки). Если есть Button на этом объекте — станцию можно нажимать")]
         public Image dot;
 
+        [Tooltip("Название видно, только когда карта приближена хотя бы до этого масштаба (чтобы надписи не налезали)")]
+        public float labelMinZoom = 0f;
+        [Tooltip("С какой стороны от точки название: 0 снизу, 1 сверху, 2 справа, 3 слева")]
+        public int labelSide = 0;
+
         public static readonly Color NormalColor = new Color(0.25f, 0.55f, 0.95f);
 
         /// <summary>Станцию нажали.</summary>
