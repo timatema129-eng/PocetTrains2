@@ -15,5 +15,9 @@ namespace TrainManager.Data
 
         [Header("Info")]
         public string displayName;
+
+        [Header("Price")]
+        [Tooltip("Цена открытия региона в монетах. 0 — открыт с начала игры")]
+        public long priceCoins;
     }
 }

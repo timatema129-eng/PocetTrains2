@@ -17,6 +17,12 @@ namespace TrainManager.UI
         /// <summary>Тип служебного вагона на покупку (если строка — покупка служебного вагона).</summary>
         [System.NonSerialized] public TrainManager.Data.WagonData serviceType;
 
+        /// <summary>Линия на покупку (если строка — покупка линии).</summary>
+        [System.NonSerialized] public TrainManager.Data.RailwayLineData line;
+
+        /// <summary>Регион на открытие (если строка — открытие региона).</summary>
+        [System.NonSerialized] public TrainManager.Data.RegionData region;
+
         public void Set(string text, string buttonText = null, UnityEngine.Events.UnityAction onClick = null)
         {
             if (label != null) label.text = text;

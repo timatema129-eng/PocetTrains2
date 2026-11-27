@@ -147,6 +147,7 @@ namespace TrainManager.UI
             foreach (WagonOffer o in root.Wagons.GetOffers(City)) sb.Append(o.slot).Append(',');
             sb.Append('|').Append(TrainsHere().Count);
             sb.Append('|').Append(root.Wallet.Coins); // доступность служебных вагонов зависит от денег
+            sb.Append('|').Append(root.State.unlockedRegionIds.Count).Append('|').Append(root.State.ownedLineIds.Count);
             return sb.ToString();
         }
 
@@ -160,6 +161,15 @@ namespace TrainManager.UI
             if (titleText != null) titleText.text = $"Станция {City.displayName}";
 
             TrainInstance train = TrainHere();
+
+            // ---- Регион ----
+            if (!root.Network.IsCityAccessible(City))
+            {
+                RegionData region = City.region;
+                ListRow regionRow = AddRow($"<b>Регион «{region.displayName}» закрыт</b>", $"Открыть {region.priceCoins}",
+                    () => root.Network.TryUnlockRegion(region));
+                regionRow.region = region;
+            }
 
             // ---- Состав выбранного поезда ----
             if (train != null)
@@ -193,6 +203,28 @@ namespace TrainManager.UI
                 WagonInstance captured = w;
                 AddRow($"  {DescribeWagon(w)}", train != null ? "Прицепить" : null,
                     () => root.Wagons.TryAttach(TrainHere(), captured)).wagon = w;
+            }
+
+            // ---- Дороги из города ----
+            AddRow("<b>Дороги из города</b>");
+            foreach (RailwayLineData line in root.Database.GetLines(City))
+            {
+                CityData other = line.cityA == City ? line.cityB : line.cityA;
+                string text = $"  — {other.displayName} · {line.distance:0} км";
+                if (root.Network.IsLineOwned(line))
+                {
+                    AddRow(text + " · куплена");
+                }
+                else if (!root.Network.CanBuyLine(line, out string why) && why.StartsWith("нужен регион"))
+                {
+                    AddRow($"{text} · {why}");
+                }
+                else
+                {
+                    RailwayLineData captured = line;
+                    AddRow(text, $"Купить {root.Network.GetLinePrice(line)}",
+                        () => root.Network.TryBuyLine(captured)).line = line;
+                }
             }
 
             // ---- Покупка ----
@@ -255,7 +287,7 @@ namespace TrainManager.UI
                 if (row == null || row.button == null || !row.button.gameObject.activeSelf || row.buttonLabel == null) continue;
 
                 string b = row.buttonLabel.text;
-                if (row.serviceType == null && b.StartsWith("Купить") && offerIndex < offers.Count)
+                if (row.serviceType == null && row.line == null && b.StartsWith("Купить") && offerIndex < offers.Count)
                     row.button.interactable = root.Wagons.CanBuy(offers[offerIndex++], train, out _);
                 else if (b == "Прицепить" && row.wagon != null)
                     row.button.interactable = root.Wagons.CanTrainTake(train, root.Wagons.GetWagonType(row.wagon), City.cityId, out _);
@@ -265,6 +297,10 @@ namespace TrainManager.UI
                                               root.Wagons.CanDetach(train, row.wagon, out _);
                 else if (row.serviceType != null)
                     row.button.interactable = root.Wagons.CanBuyService(row.serviceType, train, out _);
+                else if (row.line != null)
+                    row.button.interactable = root.Network.CanBuyLine(row.line, out _);
+                else if (row.region != null)
+                    row.button.interactable = root.Network.CanUnlockRegion(row.region, out _);
             }
         }
 

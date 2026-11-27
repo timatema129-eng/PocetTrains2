@@ -57,6 +57,13 @@ namespace TrainManager.Data
         [Tooltip("Цена 1 единицы топлива при заправке, монет")]
         [Min(0f)] public float fuelPriceCoins = 2f;
 
+        [Header("Network (черновик баланса)")]
+        [Tooltip("Цена линии = база + за км × дистанция линии, монет")]
+        [Min(0f)] public float linePriceBase = 50f;
+        [Min(0f)] public float linePricePerKm = 0.5f;
+        [Tooltip("В новой игре бесплатно даются все линии из стартового города")]
+        public bool freeLinesFromStartCity = true;
+
         [Header("Stations")]
         [Tooltip("Мест для вагонов на складе станции в начале")]
         [Min(0)] public int stationBaseSlots = 5;

@@ -65,6 +65,7 @@ namespace TrainManager.EditorTools
                 RegionData region = LoadOrCreate<RegionData>($"{DataRoot}/Regions/Region_{r.id}.asset");
                 region.regionId = r.id;
                 region.displayName = r.name;
+                region.priceCoins = r.price;
                 EditorUtility.SetDirty(region);
                 regionById.Add(r.id, region);
                 regions.Add(region);
@@ -130,7 +131,7 @@ namespace TrainManager.EditorTools
 
         // ================= Чтение файлов =================
 
-        private class RegionRow { public string id, name, where; }
+        private class RegionRow { public string id, name, where; public long price; }
         private class CityRow { public string id, name, regionId, where; public double lat, lon; }
         private class LineRow { public string a, b, regionId, where; public double distance; }
 
@@ -173,7 +174,11 @@ namespace TrainManager.EditorTools
                         case "region":
                             Need(p, 3);
                             regionId = p[1];
-                            map.regions.Add(new RegionRow { id = p[1], name = p[2], where = where });
+                            map.regions.Add(new RegionRow
+                            {
+                                id = p[1], name = p[2], where = where,
+                                price = p.Length >= 4 && p[3].Length > 0 ? (long)Num(p[3]) : 0
+                            });
                             break;
 
                         case "map":

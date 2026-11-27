@@ -18,9 +18,12 @@ namespace TrainManager.Core
         private readonly IGameClock clock;
         private readonly GameEvents events;
         private readonly FuelService fuel;
+        private readonly NetworkService network;
 
-        public TrainService(GameState state, GameDatabase db, IGameClock clock, GameEvents events, FuelService fuel)
+        public TrainService(GameState state, GameDatabase db, IGameClock clock, GameEvents events, FuelService fuel,
+            NetworkService network)
         {
+            this.network = network;
             this.state = state;
             this.db = db;
             this.clock = clock;
@@ -126,9 +129,15 @@ namespace TrainManager.Core
             }
             for (int i = 1; i < stops.Count; i++)
             {
-                if (db.FindLine(stops[i - 1], stops[i]) == null)
+                RailwayLineData line = db.FindLine(stops[i - 1], stops[i]);
+                if (line == null)
                 {
                     reason = $"нет линии {stops[i - 1].displayName} — {stops[i].displayName}";
+                    return false;
+                }
+                if (!network.IsLineOwned(line))
+                {
+                    reason = $"линия {stops[i - 1].displayName} — {stops[i].displayName} не куплена";
                     return false;
                 }
             }

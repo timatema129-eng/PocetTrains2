@@ -249,6 +249,12 @@ namespace TrainManager.EditorTools
             // Окно станции (скрыто, открывается нажатием на станцию)
             StationWindow window = CreateStationWindow(canvasT, root, selection, planner);
 
+            // Раскраска сети: купленные/некупленные линии, закрытые регионы
+            MapNetworkView network = mapGo.AddComponent<MapNetworkView>();
+            network.root = root;
+            network.map = map;
+            network.planner = planner;
+
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
             interaction.map = map;
@@ -397,6 +403,9 @@ namespace TrainManager.EditorTools
             rect.sizeDelta = new Vector2(delta.magnitude, 4f);
             rect.anchoredPosition = (a + b) * 0.5f;
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+
+            LineView view = line.gameObject.AddComponent<LineView>();
+            view.line = data;
         }
 
         private static StationWindow CreateStationWindow(Transform canvasT, GameRoot root, TrainSelection selection,

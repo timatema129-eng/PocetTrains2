@@ -81,10 +81,13 @@ namespace TrainManager.UI
                 return;
             }
 
-            if (root.Database.FindLine(plan[plan.Count - 1], city) != null)
+            CityData last = plan[plan.Count - 1];
+            if (root.Network.FindOwnedLine(last, city) != null)
                 plan.Add(city);
+            else if (root.Database.FindLine(last, city) != null)
+                Debug.Log($"[Route] Линия {last.displayName} — {city.displayName} не куплена — купи её в окне станции");
             else
-                Debug.Log($"[Route] Нет линии {plan[plan.Count - 1].displayName} — {city.displayName}");
+                Debug.Log($"[Route] Нет линии {last.displayName} — {city.displayName}");
         }
 
         private void Send()
@@ -135,7 +138,8 @@ namespace TrainManager.UI
                 Color color = StationView.NormalColor;
                 if (plan.Count > 0 && station.city == plan[0]) color = TrainCityColor;
                 else if (plan.Contains(station.city)) color = PlanColor;
-                else if (last != null && root.Database.FindLine(last, station.city) != null) color = NextColor;
+                else if (last != null && root.Network.FindOwnedLine(last, station.city) != null) color = NextColor;
+                else if (!root.Network.IsCityAccessible(station.city)) color = MapNetworkView.LockedStationColor;
                 station.SetHighlight(color);
             }
         }
@@ -143,7 +147,7 @@ namespace TrainManager.UI
         private string BuildText(TrainInstance train)
         {
             string who = $"Маршрут для «{root.Trains.GetDisplayName(train)}» ({train.instanceId})";
-            if (plan.Count < 2) return who + "\nНажимай на зелёные города";
+            if (plan.Count < 2) return who + "\nНажимай на зелёные города (только по купленным линиям)";
 
             var ids = new List<string>(plan.Count);
             foreach (CityData c in plan) ids.Add(c.cityId);

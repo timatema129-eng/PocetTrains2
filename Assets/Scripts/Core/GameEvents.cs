@@ -36,6 +36,15 @@ namespace TrainManager.Core
 
         public void RaiseStationChanged(CityData city) => StationChanged?.Invoke(city);
 
+        /// <summary>Открыт регион (для достижений: «открыл регион → доллары»).</summary>
+        public event Action<RegionData> RegionUnlocked;
+
+        /// <summary>Куплена линия.</summary>
+        public event Action<RailwayLineData> LineBought;
+
+        public void RaiseRegionUnlocked(RegionData region) => RegionUnlocked?.Invoke(region);
+        public void RaiseLineBought(RailwayLineData line) => LineBought?.Invoke(line);
+
         public void RaiseWalletChanged(Currency currency, long balance, long delta, string reason) =>
             WalletChanged?.Invoke(currency, balance, delta, reason);
 

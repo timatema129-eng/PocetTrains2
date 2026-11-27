@@ -23,6 +23,7 @@ namespace TrainManager.Core
         public WalletService Wallet { get; private set; }
         public WagonService Wagons { get; private set; }
         public FuelService Fuel { get; private set; }
+        public NetworkService Network { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -50,8 +51,9 @@ namespace TrainManager.Core
 
             Wallet = new WalletService(State, Events);
             Fuel = new FuelService(State, database, Wallet);
-            Trains = new TrainService(State, database, clock, Events, Fuel);
-            Wagons = new WagonService(State, database, Wallet, Events, clock, Fuel); // подписывается на прибытие: выгрузка
+            Network = new NetworkService(State, database, Wallet, Events);
+            Trains = new TrainService(State, database, clock, Events, Fuel, Network);
+            Wagons = new WagonService(State, database, Wallet, Events, clock, Fuel, Network); // подписывается на прибытие: выгрузка
 
             if (isNewGame)
                 StartNewGame();
@@ -64,6 +66,8 @@ namespace TrainManager.Core
             Events.WagonBought += wagon => Save();
             Events.WagonMoved += wagon => Save();
             Events.StationChanged += city => Save();
+            Events.RegionUnlocked += region => Save();
+            Events.LineBought += line => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.
@@ -80,6 +84,7 @@ namespace TrainManager.Core
                 return;
             }
 
+            Network.SetupStartingNetwork();
             Trains.CreateTrain(database.startTrain, database.startCity);
             for (int i = 0; i < database.extraStartTrainsForTesting; i++)
                 Trains.CreateTrain(database.startTrain, database.startCity);
@@ -139,6 +144,13 @@ namespace TrainManager.Core
             }
 
             RepairWagons();
+
+            Network.RemoveMissing();
+            if (State.unlockedRegionIds.Count == 0)
+            {
+                Debug.Log("[Game] В сохранении нет сети (старая версия) — выдаём стартовую");
+                Network.SetupStartingNetwork();
+            }
 
             if (State.trains.Count == 0)
                 StartNewGame();
