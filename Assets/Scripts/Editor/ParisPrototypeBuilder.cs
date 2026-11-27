@@ -139,6 +139,14 @@ namespace TrainManager.EditorTools
 
             // ---------- 2. Сцена ----------
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // Важно: новая сцена выгружает из памяти «неиспользуемые» ассеты, и загруженная выше база
+            // превращается в пустышку (ссылка в сцене сохранялась как None). Загружаем её заново с диска.
+            database = AssetDatabase.LoadAssetAtPath<GameDatabase>(MapDataImporter.DatabasePath);
+            if (database == null)
+            {
+                Debug.LogError("[Train Manager] ПРИШЛИ ЭТО CLAUDE: база игры не загрузилась после создания сцены");
+                return false;
+            }
 
             var cameraGo = new GameObject("Main Camera");
             cameraGo.tag = "MainCamera";
@@ -500,7 +508,15 @@ namespace TrainManager.EditorTools
 #if ENABLE_INPUT_SYSTEM
             // В проекте включён новый Input System, поэтому нужен этот модуль, а не StandaloneInputModule.
             var module = go.AddComponent<InputSystemUIInputModule>();
-            module.AssignDefaultActions();
+            try
+            {
+                module.AssignDefaultActions();
+            }
+            catch (Exception e)
+            {
+                // Кнопки всё равно работают: модуль сам возьмёт стандартные действия при запуске
+                Debug.LogWarning("[Train Manager] Стандартные действия ввода не назначены: " + e.Message);
+            }
 #else
             go.AddComponent<StandaloneInputModule>();
 #endif
