@@ -15,8 +15,11 @@ namespace TrainManager.Trains
         public GameRoot root;
         public MapView map;
 
-        [Tooltip("Какой по счёту поезд игрока показывать (0 — первый)")]
-        [Min(0)] public int trainIndex;
+        [Tooltip("instanceId поезда (выставляет TrainLayer)")]
+        public string trainId;
+
+        [Tooltip("Сдвиг картинки, чтобы несколько поездов в одном городе не сливались")]
+        public Vector2 offset;
 
         private RectTransform rect;
 
@@ -34,7 +37,7 @@ namespace TrainManager.Trains
         {
             if (root == null || map == null || !root.IsReady) return;
 
-            TrainInstance train = root.Trains.GetTrainByIndex(trainIndex);
+            TrainInstance train = root.State.FindTrain(trainId);
             if (train == null) return;
 
             root.Trains.GetPosition(train, out string fromId, out string toId, out float t);
@@ -42,7 +45,7 @@ namespace TrainManager.Trains
             if (map.TryGetStationPosition(fromId, out Vector2 from) &&
                 map.TryGetStationPosition(toId, out Vector2 to))
             {
-                rect.anchoredPosition = Vector2.Lerp(from, to, t);
+                rect.anchoredPosition = Vector2.Lerp(from, to, t) + offset;
             }
         }
     }

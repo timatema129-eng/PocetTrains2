@@ -29,7 +29,9 @@ namespace TrainManager.Data
         [Tooltip("Монеты в новой игре")]
         public long startCoins = 500;
         [Tooltip("Доллары в новой игре")]
-        public long startDollars = 0;
+        public long startDollars = 20;
+        [Tooltip("ДЛЯ ТЕСТА: сколько дополнительных поездов той же модели дать в новой игре (проверка переключения поездов)")]
+        [Min(0)] public int extraStartTrainsForTesting = 1;
 
         [Header("Economy (черновик баланса, числа меняются здесь)")]
         [Tooltip("Цена вагона = база + за км × расстояние до города назначения (по прямой)")]
@@ -38,12 +40,22 @@ namespace TrainManager.Data
         [Tooltip("Доход за доставку = база + за км × расстояние от города покупки до города назначения")]
         [Min(0f)] public float deliveryBaseIncome = 40f;
         [Min(0f)] public float deliveryIncomePerKm = 0.3f;
-        [Tooltip("Сколько городов назначения предлагать при покупке вагона (ближайшие)")]
+        [Tooltip("Сколько вагонов в списке предложений станции")]
         [Min(1)] public int wagonOfferCount = 6;
+        [Tooltip("Из скольких ближайших городов случайно выбираются города назначения")]
+        [Min(1)] public int wagonOfferPool = 20;
+        [Tooltip("Раз во сколько минут (реального времени) обновляется список вагонов")]
+        [Min(1)] public int wagonOfferRefreshMinutes = 30;
 
         [Header("Stations")]
         [Tooltip("Мест для вагонов на складе станции в начале")]
         [Min(0)] public int stationBaseSlots = 5;
+        [Tooltip("Сколько мест добавляет одно расширение склада")]
+        [Min(1)] public int stationExpandSlots = 5;
+        [Tooltip("Цена первого расширения, доллары")]
+        [Min(0)] public int stationExpandPriceDollars = 10;
+        [Tooltip("На сколько долларов дорожает каждое следующее расширение (0 — всегда одна цена)")]
+        [Min(0)] public int stationExpandPriceStep = 0;
 
         [Header("Time")]
         [Min(0.01f)]

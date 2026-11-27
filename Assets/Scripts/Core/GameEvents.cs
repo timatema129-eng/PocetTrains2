@@ -31,6 +31,11 @@ namespace TrainManager.Core
         /// <summary>Вагон перемещён между поездом и складом станции.</summary>
         public event Action<WagonInstance> WagonMoved;
 
+        /// <summary>Изменилась станция (например, расширен склад).</summary>
+        public event Action<CityData> StationChanged;
+
+        public void RaiseStationChanged(CityData city) => StationChanged?.Invoke(city);
+
         public void RaiseWalletChanged(Currency currency, long balance, long delta, string reason) =>
             WalletChanged?.Invoke(currency, balance, delta, reason);
 

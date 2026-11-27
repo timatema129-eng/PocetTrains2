@@ -7,6 +7,8 @@ namespace TrainManager.Core
     /// <summary>Предложение купить вагон в город назначения.</summary>
     public struct WagonOffer
     {
+        /// <summary>Позиция в списке станции (0..N-1). Купленная позиция исчезает до обновления списка.</summary>
+        public int slot;
         public WagonData type;
         public CityData origin;
         public CityData destination;
@@ -21,7 +23,8 @@ namespace TrainManager.Core
     /// - вагон всегда ровно в одном месте (склад станции или поезд);
     /// - прицепить/отцепить можно только у поезда, который стоит в этом городе;
     /// - лимит состава — maxWagons модели; лимит склада — stationBaseSlots + докупленные места;
-    /// - на каждой остановке маршрута выгружаются ТОЛЬКО вагоны, назначенные в этот город.
+    /// - на каждой остановке маршрута выгружаются ТОЛЬКО вагоны, назначенные в этот город;
+    /// - список вагонов на станции обновляется по реальному времени, купленная позиция исчезает до обновления.
     /// Цены и доход — черновые формулы из GameDatabase (раздел Economy).
     /// </summary>
     public class WagonService
@@ -30,13 +33,15 @@ namespace TrainManager.Core
         private readonly GameDatabase db;
         private readonly WalletService wallet;
         private readonly GameEvents events;
+        private readonly IGameClock clock;
 
-        public WagonService(GameState state, GameDatabase db, WalletService wallet, GameEvents events)
+        public WagonService(GameState state, GameDatabase db, WalletService wallet, GameEvents events, IGameClock clock)
         {
             this.state = state;
             this.db = db;
             this.wallet = wallet;
             this.events = events;
+            this.clock = clock;
 
             events.TrainReachedStop += OnTrainReachedStop;
         }
@@ -109,8 +114,32 @@ namespace TrainManager.Core
             return (long)Mathf.Round((db.deliveryBaseIncome + db.deliveryIncomePerKm * km) * mult);
         }
 
+        /// <summary>Номер текущего периода списка предложений (меняется раз в wagonOfferRefreshMinutes).</summary>
+        public long CurrentOfferPeriod
+        {
+            get
+            {
+                long periodMs = (long)Mathf.Max(1, db.wagonOfferRefreshMinutes) * 60L * 1000L;
+                return clock.NowUnixMs / periodMs;
+            }
+        }
+
+        /// <summary>Сколько секунд до обновления списка вагонов.</summary>
+        public float SecondsToOfferRefresh
+        {
+            get
+            {
+                long periodMs = (long)Mathf.Max(1, db.wagonOfferRefreshMinutes) * 60L * 1000L;
+                long next = (CurrentOfferPeriod + 1) * periodMs;
+                return Mathf.Max(0f, (next - clock.NowUnixMs) / 1000f);
+            }
+        }
+
         /// <summary>
-        /// Предложения вагонов в городе: ближайшие города по прямой. Без случайности (случайный список — Этап 4).
+        /// Список вагонов на станции. Города назначения случайно выбираются из ближайших (wagonOfferPool),
+        /// но случайность «зерновая»: для одного города и одного периода список всегда одинаковый,
+        /// поэтому его не нужно сохранять, а после перезапуска он не меняется.
+        /// Уже купленные позиции в список не попадают.
         /// </summary>
         public List<WagonOffer> GetOffers(CityData city)
         {
@@ -118,17 +147,22 @@ namespace TrainManager.Core
             WagonData type = db.DefaultCargoWagon;
             if (city == null || type == null) return result;
 
-            var others = new List<CityData>();
-            foreach (CityData c in db.cities)
-                if (c != null && c != city) others.Add(c);
-            others.Sort((a, b) => Geo.DistanceKm(city, a).CompareTo(Geo.DistanceKm(city, b)));
+            List<CityData> pool = GetNearestCities(city);
+            if (pool.Count == 0) return result;
 
-            int count = Mathf.Min(db.wagonOfferCount, others.Count);
-            for (int i = 0; i < count; i++)
+            long period = CurrentOfferPeriod;
+            var random = new System.Random(Seed(city.cityId, period));
+            List<int> bought = GetBoughtSlots(city.cityId, period);
+
+            for (int slot = 0; slot < db.wagonOfferCount; slot++)
             {
-                CityData dest = others[i];
+                // Выбор делается для каждой позиции всегда, даже купленной, чтобы остальные позиции не «съезжали».
+                CityData dest = pool[random.Next(pool.Count)];
+                if (bought != null && bought.Contains(slot)) continue;
+
                 result.Add(new WagonOffer
                 {
+                    slot = slot,
                     type = type,
                     origin = city,
                     destination = dest,
@@ -138,6 +172,98 @@ namespace TrainManager.Core
                 });
             }
             return result;
+        }
+
+        private readonly Dictionary<CityData, List<CityData>> nearestCache = new Dictionary<CityData, List<CityData>>();
+
+        /// <summary>Ближайшие города (wagonOfferPool штук), посчитано один раз на город.</summary>
+        private List<CityData> GetNearestCities(CityData city)
+        {
+            if (nearestCache.TryGetValue(city, out List<CityData> cached)) return cached;
+
+            var pool = new List<CityData>();
+            foreach (CityData c in db.cities)
+                if (c != null && c != city) pool.Add(c);
+            pool.Sort((a, b) => Geo.DistanceKm(city, a).CompareTo(Geo.DistanceKm(city, b)));
+            if (pool.Count > db.wagonOfferPool) pool.RemoveRange(db.wagonOfferPool, pool.Count - db.wagonOfferPool);
+
+            nearestCache[city] = pool;
+            return pool;
+        }
+
+        private List<int> GetBoughtSlots(string cityId, long period)
+        {
+            foreach (StationState st in state.stations)
+            {
+                if (st != null && st.cityId == cityId)
+                    return st.offerPeriod == period ? st.boughtOfferSlots : null;
+            }
+            return null;
+        }
+
+        private void MarkBought(string cityId, int slot)
+        {
+            StationState st = state.GetOrCreateStation(cityId);
+            long period = CurrentOfferPeriod;
+            if (st.offerPeriod != period)
+            {
+                st.offerPeriod = period;
+                st.boughtOfferSlots.Clear();
+            }
+            if (!st.boughtOfferSlots.Contains(slot))
+                st.boughtOfferSlots.Add(slot);
+        }
+
+        /// <summary>Стабильное зерно из ID города и номера периода (string.GetHashCode не стабилен между запусками).</summary>
+        private static int Seed(string text, long period)
+        {
+            unchecked
+            {
+                uint hash = 2166136261;
+                foreach (char ch in text)
+                {
+                    hash ^= ch;
+                    hash *= 16777619;
+                }
+                hash ^= (uint)period;
+                hash *= 16777619;
+                hash ^= (uint)(period >> 32);
+                hash *= 16777619;
+                return (int)(hash & 0x7FFFFFFF);
+            }
+        }
+
+        // ================= Склад станции: расширение =================
+
+        public long GetExpandPrice(string cityId)
+        {
+            int expansions = 0;
+            foreach (StationState st in state.stations)
+            {
+                if (st != null && st.cityId == cityId)
+                {
+                    expansions = st.expansions;
+                    break;
+                }
+            }
+            return db.stationExpandPriceDollars + (long)db.stationExpandPriceStep * expansions;
+        }
+
+        /// <summary>Расширить склад станции на stationExpandSlots мест за доллары.</summary>
+        public bool TryExpandStation(CityData city)
+        {
+            if (city == null) return false;
+
+            long price = GetExpandPrice(city.cityId);
+            if (!wallet.TrySpend(Currency.Dollars, price, $"расширение склада {city.displayName}"))
+                return false;
+
+            StationState st = state.GetOrCreateStation(city.cityId);
+            st.extraSlots += db.stationExpandSlots;
+            st.expansions++;
+            Debug.Log($"[Station] Склад {city.displayName} расширен: {GetStationCapacity(city.cityId)} мест");
+            events.RaiseStationChanged(city);
+            return true;
         }
 
         // ================= Покупка =================
@@ -150,6 +276,12 @@ namespace TrainManager.Core
             if (offer.type == null || offer.origin == null || offer.destination == null)
             {
                 reason = "предложение не настроено";
+                return false;
+            }
+            List<int> bought = GetBoughtSlots(offer.origin.cityId, CurrentOfferPeriod);
+            if (bought != null && bought.Contains(offer.slot))
+            {
+                reason = "этот вагон уже куплен";
                 return false;
             }
             if (offer.origin == offer.destination)
@@ -193,6 +325,7 @@ namespace TrainManager.Core
                 incomeCoins = offer.income
             };
             state.wagons.Add(wagon);
+            MarkBought(offer.origin.cityId, offer.slot);
 
             if (HasTrainSpace(trainHere, offer.origin.cityId))
                 PutOnTrain(wagon, trainHere);

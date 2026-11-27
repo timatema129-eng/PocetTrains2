@@ -37,11 +37,22 @@ namespace TrainManager.Core
         public string locationId;
     }
 
-    /// <summary>Состояние станции игрока: сколько мест докуплено (Этап 4).</summary>
+    /// <summary>Состояние станции игрока: докупленные места и уже купленные вагоны из текущего списка.</summary>
     [Serializable]
     public class StationState
     {
         public string cityId;
+
+        /// <summary>Сколько мест докуплено сверх базовых.</summary>
         public int extraSlots;
+
+        /// <summary>Сколько раз расширяли склад (для роста цены).</summary>
+        public int expansions;
+
+        /// <summary>Номер периода списка предложений, к которому относится boughtOfferSlots.</summary>
+        public long offerPeriod = -1;
+
+        /// <summary>Какие позиции текущего списка уже куплены (исчезают до обновления).</summary>
+        public System.Collections.Generic.List<int> boughtOfferSlots = new System.Collections.Generic.List<int>();
     }
 }

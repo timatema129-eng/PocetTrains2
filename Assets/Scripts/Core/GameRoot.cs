@@ -49,7 +49,7 @@ namespace TrainManager.Core
 
             Trains = new TrainService(State, database, clock, Events);
             Wallet = new WalletService(State, Events);
-            Wagons = new WagonService(State, database, Wallet, Events); // подписывается на прибытие: выгрузка
+            Wagons = new WagonService(State, database, Wallet, Events, clock); // подписывается на прибытие: выгрузка
 
             if (isNewGame)
                 StartNewGame();
@@ -61,6 +61,7 @@ namespace TrainManager.Core
             Events.TrainReachedStop += (train, city, isFinal) => Save();
             Events.WagonBought += wagon => Save();
             Events.WagonMoved += wagon => Save();
+            Events.StationChanged += city => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.
@@ -78,6 +79,8 @@ namespace TrainManager.Core
             }
 
             Trains.CreateTrain(database.startTrain, database.startCity);
+            for (int i = 0; i < database.extraStartTrainsForTesting; i++)
+                Trains.CreateTrain(database.startTrain, database.startCity);
             Wallet.Add(Currency.Coins, database.startCoins, "старт игры");
             Wallet.Add(Currency.Dollars, database.startDollars, "старт игры");
             Debug.Log("[Game] Новая игра");
@@ -148,6 +151,9 @@ namespace TrainManager.Core
         {
             if (State.wagons == null) State.wagons = new List<WagonInstance>();
             if (State.stations == null) State.stations = new List<StationState>();
+            State.stations.RemoveAll(st => st == null);
+            foreach (StationState st in State.stations)
+                if (st.boughtOfferSlots == null) st.boughtOfferSlots = new List<int>();
 
             for (int i = State.wagons.Count - 1; i >= 0; i--)
             {

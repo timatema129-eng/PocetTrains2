@@ -143,15 +143,27 @@ namespace TrainManager.EditorTools
             foreach (CityData city in database.cities)
                 CreateStation(city, mapGo.transform);
 
-            // Картинка поезда на карте (последней — чтобы рисовалась поверх станций)
-            Image trainImage = CreateImage("Train_Standard (View)", mapGo.transform, new Color(0.85f, 0.2f, 0.2f));
+            // Выбранный поезд (один объект на сцене)
+            var selectionGo = new GameObject("TrainSelection");
+            TrainSelection selection = selectionGo.AddComponent<TrainSelection>();
+            selection.root = root;
+
+            // Поезда на карте: шаблон картинки, TrainLayer копирует его для каждого поезда
+            // (последними — чтобы рисовались поверх станций)
+            Image trainImage = CreateImage("TrainTemplate", mapGo.transform, new Color(0.85f, 0.2f, 0.2f));
             trainImage.rectTransform.sizeDelta = new Vector2(30f, 16f);
             trainImage.rectTransform.anchoredPosition = database.startCity.mapPosition;
             trainImage.raycastTarget = false;
             TrainView trainView = trainImage.gameObject.AddComponent<TrainView>();
             trainView.root = root;
             trainView.map = map;
-            trainView.trainIndex = 0;
+            trainImage.gameObject.SetActive(false);
+
+            TrainLayer trainLayer = mapGo.AddComponent<TrainLayer>();
+            trainLayer.root = root;
+            trainLayer.map = map;
+            trainLayer.selection = selection;
+            trainLayer.template = trainView;
 
             MapNavigator navigator = viewportGo.AddComponent<MapNavigator>();
             navigator.scroll = scroll;
@@ -171,6 +183,7 @@ namespace TrainManager.EditorTools
             TrainStatusText statusText = status.gameObject.AddComponent<TrainStatusText>();
             statusText.root = root;
             statusText.text = status;
+            statusText.selection = selection;
 
             // Баланс (справа сверху)
             TMP_Text walletLabel = CreateText("Wallet", canvasT, "", 30, TextAlignmentOptions.TopRight);
@@ -185,10 +198,7 @@ namespace TrainManager.EditorTools
             wallet.root = root;
             wallet.text = walletLabel;
 
-            // Панель вагонов (справа): состав, склад станции, покупка
-            CreateWagonPanel(canvasT, root);
-
-            // Составление маршрута: текст + кнопки «Отправить» и «Сбросить»
+            // Составление маршрута: текст + кнопки «Отправить», «Сбросить», «Отмена» (скрыто, пока не нажат «Маршрут»)
             var panelGo = new GameObject("RoutePlanner", typeof(RectTransform));
             panelGo.transform.SetParent(canvasT, false);
             var panelRect = (RectTransform)panelGo.transform;
@@ -205,18 +215,30 @@ namespace TrainManager.EditorTools
             planRect.anchorMin = new Vector2(0f, 0f);
             planRect.anchorMax = new Vector2(1f, 1f);
             planRect.offsetMin = new Vector2(20f, 0f);
-            planRect.offsetMax = new Vector2(-580f, 0f);
+            planRect.offsetMax = new Vector2(-860f, 0f);
 
-            Button sendButton = CreateButton("SendButton", panelGo.transform, "Отправить", new Vector2(-290f, 0f));
-            Button clearButton = CreateButton("ClearButton", panelGo.transform, "Сбросить", new Vector2(-10f, 0f));
+            Button sendButton = CreateButton("SendButton", panelGo.transform, "Отправить", new Vector2(-570f, 0f));
+            Button clearButton = CreateButton("ClearButton", panelGo.transform, "Сбросить", new Vector2(-290f, 0f));
+            Button cancelButton = CreateButton("CancelButton", panelGo.transform, "Отмена", new Vector2(-10f, 0f));
 
             RoutePlanner planner = panelGo.AddComponent<RoutePlanner>();
             planner.root = root;
             planner.map = map;
+            planner.selection = selection;
             planner.planText = planText;
             planner.sendButton = sendButton;
             planner.clearButton = clearButton;
-            planner.trainIndex = 0;
+            planner.cancelButton = cancelButton;
+            panelGo.SetActive(false);
+
+            // Окно станции (скрыто, открывается нажатием на станцию)
+            StationWindow window = CreateStationWindow(canvasT, root, selection, planner);
+
+            // Нажатие на станцию: маршрут или окно станции
+            MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
+            interaction.map = map;
+            interaction.planner = planner;
+            interaction.stationWindow = window;
 
             // ---------- 3. Сохранение ----------
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -362,46 +384,142 @@ namespace TrainManager.EditorTools
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
-        private static void CreateWagonPanel(Transform canvasT, GameRoot root)
+        private static StationWindow CreateStationWindow(Transform canvasT, GameRoot root, TrainSelection selection,
+            RoutePlanner planner)
         {
-            var panelGo = new GameObject("WagonPanel", typeof(RectTransform));
-            panelGo.transform.SetParent(canvasT, false);
-            var rect = (RectTransform)panelGo.transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = new Vector2(-20f, -84f);
-            rect.sizeDelta = new Vector2(540f, 800f);
-            Image bg = panelGo.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.6f);
+            var go = new GameObject("StationWindow", typeof(RectTransform));
+            go.transform.SetParent(canvasT, false);
+            var rect = (RectTransform)go.transform;
+            Place(rect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-20f, -84f), new Vector2(640f, 860f));
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
 
-            var layout = panelGo.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(16, 16, 16, 16);
-            layout.spacing = 8f;
-            layout.childAlignment = TextAnchor.UpperLeft;
+            // Заголовок и «закрыть»
+            TMP_Text title = CreateText("Title", go.transform, "Станция", 32, TextAlignmentOptions.MidlineLeft);
+            Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(20f, -10f), new Vector2(-110f, 50f));
+            Button close = CreateSmallButton("Close", go.transform, "X", 26);
+            Place((RectTransform)close.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-12f, -10f), new Vector2(60f, 50f));
+
+            // Переключатель поездов
+            Button prev = CreateSmallButton("PrevTrain", go.transform, "<", 30);
+            Place((RectTransform)prev.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12f, -70f), new Vector2(60f, 56f));
+            Button next = CreateSmallButton("NextTrain", go.transform, ">", 30);
+            Place((RectTransform)next.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-12f, -70f), new Vector2(60f, 56f));
+            TMP_Text trainLabel = CreateText("TrainLabel", go.transform, "", 22, TextAlignmentOptions.Center);
+            Place(trainLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(-160f, 56f));
+
+            // «Маршрут» и «Расширить склад»
+            Button route = CreateSmallButton("RouteButton", go.transform, "Маршрут", 24);
+            Place((RectTransform)route.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12f, -138f), new Vector2(240f, 56f));
+            Button expand = CreateSmallButton("ExpandButton", go.transform, "", 22);
+            Place((RectTransform)expand.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-12f, -138f), new Vector2(340f, 56f));
+            TMP_Text expandLabel = expand.GetComponentInChildren<TMP_Text>();
+
+            // Прокручиваемый список
+            var viewportGo = new GameObject("ListViewport", typeof(RectTransform));
+            viewportGo.transform.SetParent(go.transform, false);
+            var viewport = (RectTransform)viewportGo.transform;
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = new Vector2(12f, 12f);
+            viewport.offsetMax = new Vector2(-12f, -206f);
+            Image viewportImage = viewportGo.AddComponent<Image>();
+            viewportImage.color = new Color(1f, 1f, 1f, 0.03f);
+            viewportGo.AddComponent<RectMask2D>();
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(viewport, false);
+            var content = (RectTransform)contentGo.transform;
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var layout = contentGo.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(8, 8, 8, 8);
+            layout.spacing = 6f;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
+            var fitter = contentGo.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            TMP_Text info = CreateText("Info", panelGo.transform, "", 22, TextAlignmentOptions.TopLeft);
+            var scroll = viewportGo.AddComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
 
-            // Шаблон кнопки предложения (выключен; панель копирует его для каждого города)
-            Image templateImage = CreateImage("OfferTemplate", panelGo.transform, new Color(0.95f, 0.95f, 0.95f));
-            Button template = templateImage.gameObject.AddComponent<Button>();
-            template.targetGraphic = templateImage;
-            var element = templateImage.gameObject.AddComponent<LayoutElement>();
-            element.preferredHeight = 68f;
-            TMP_Text label = CreateText("Text", templateImage.transform, "", 20, TextAlignmentOptions.Center);
+            // Шаблон строки: текст + кнопка справа
+            var rowGo = new GameObject("RowTemplate", typeof(RectTransform));
+            rowGo.transform.SetParent(content, false);
+            var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.spacing = 8f;
+            rowLayout.childAlignment = TextAnchor.MiddleLeft;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = false;
+            rowGo.AddComponent<LayoutElement>().minHeight = 44f;
+
+            TMP_Text rowLabel = CreateText("Label", rowGo.transform, "", 21, TextAlignmentOptions.MidlineLeft);
+            var labelElement = rowLabel.gameObject.AddComponent<LayoutElement>();
+            labelElement.flexibleWidth = 1f;
+            labelElement.preferredWidth = 10f; // ширину даёт flexible, а не длина текста — иначе длинный текст выталкивает кнопку
+
+            Button rowButton = CreateSmallButton("Button", rowGo.transform, "", 20);
+            var buttonElement = rowButton.gameObject.AddComponent<LayoutElement>();
+            buttonElement.preferredWidth = 170f;
+            buttonElement.preferredHeight = 42f;
+
+            ListRow row = rowGo.AddComponent<ListRow>();
+            row.label = rowLabel;
+            row.button = rowButton;
+            row.buttonLabel = rowButton.GetComponentInChildren<TMP_Text>();
+            rowGo.SetActive(false);
+
+            StationWindow window = go.AddComponent<StationWindow>();
+            window.root = root;
+            window.selection = selection;
+            window.planner = planner;
+            window.titleText = title;
+            window.closeButton = close;
+            window.prevTrainButton = prev;
+            window.nextTrainButton = next;
+            window.trainLabel = trainLabel;
+            window.routeButton = route;
+            window.expandButton = expand;
+            window.expandLabel = expandLabel;
+            window.listContainer = content;
+            window.rowTemplate = row;
+            go.SetActive(false);
+            return window;
+        }
+
+        private static void Place(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,
+            Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.pivot = pivot;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+        }
+
+        /// <summary>Светлая кнопка с тёмным текстом. Размер/позицию задаёт вызывающий.</summary>
+        private static Button CreateSmallButton(string name, Transform parent, string text, float fontSize)
+        {
+            Image image = CreateImage(name, parent, new Color(0.95f, 0.95f, 0.95f));
+            Button button = image.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+
+            TMP_Text label = CreateText("Text", image.transform, text, fontSize, TextAlignmentOptions.Center);
             label.color = new Color(0.1f, 0.1f, 0.1f);
             Stretch(label.rectTransform);
-            templateImage.gameObject.SetActive(false);
-
-            WagonPanel panel = panelGo.AddComponent<WagonPanel>();
-            panel.root = root;
-            panel.infoText = info;
-            panel.offersContainer = rect;
-            panel.buttonTemplate = template;
-            panel.trainIndex = 0;
+            return button;
         }
 
         /// <summary>Кнопка справа внизу панели. x — сдвиг от правого края.</summary>

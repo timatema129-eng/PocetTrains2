@@ -14,14 +14,13 @@ namespace TrainManager.UI
         public GameRoot root;
         public TMP_Text text;
 
-        [Tooltip("Какой по счёту поезд игрока показывать (0 — первый)")]
-        [Min(0)] public int trainIndex;
+        public TrainSelection selection;
 
         private void Update()
         {
             if (root == null || text == null || !root.IsReady) return;
 
-            TrainInstance train = root.Trains.GetTrainByIndex(trainIndex);
+            TrainInstance train = selection != null ? selection.Selected : root.Trains.GetTrainByIndex(0);
             if (train == null)
             {
                 text.text = "Нет поезда";
