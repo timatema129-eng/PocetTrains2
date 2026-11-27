@@ -1,0 +1,170 @@
+# Регион «Европа» — источник данных для Tools → Train Manager → Import Map Data.
+# Ключевые города страны, реальные координаты. Линии проведены по географическому правилу:
+# соседние города, правдоподобные сухопутные коридоры и несколько морских переправ.
+# Формат и общие настройки карты — в файле _World.txt.
+
+region; europe; Европа; 0
+
+# ---------- Города ----------
+city; london; Лондон; 51.507; -0.128
+city; manchester; Манчестер; 53.481; -2.242
+city; edinburgh; Эдинбург; 55.953; -3.189
+city; dublin; Дублин; 53.350; -6.260
+city; reykjavik; Рейкьявик; 64.147; -21.942
+city; paris; Париж; 48.857; 2.352
+city; bordeaux; Бордо; 44.838; -0.579
+city; lyon; Лион; 45.764; 4.836
+city; marseille; Марсель; 43.296; 5.370
+city; brussels; Брюссель; 50.847; 4.357
+city; amsterdam; Амстердам; 52.370; 4.895
+city; cologne; Кёльн; 50.938; 6.960
+city; frankfurt; Франкфурт; 50.110; 8.682
+city; hamburg; Гамбург; 53.551; 9.994
+city; berlin; Берлин; 52.520; 13.405
+city; munich; Мюнхен; 48.137; 11.575
+city; zurich; Цюрих; 47.377; 8.541
+city; milan; Милан; 45.464; 9.190
+city; venice; Венеция; 45.441; 12.316
+city; rome; Рим; 41.903; 12.496
+city; naples; Неаполь; 40.852; 14.268
+city; madrid; Мадрид; 40.417; -3.704
+city; barcelona; Барселона; 41.385; 2.173
+city; valencia; Валенсия; 39.470; -0.376
+city; seville; Севилья; 37.389; -5.984
+city; lisbon; Лиссабон; 38.722; -9.139
+city; porto; Порту; 41.158; -8.629
+city; copenhagen; Копенгаген; 55.676; 12.568
+city; oslo; Осло; 59.914; 10.752
+city; stockholm; Стокгольм; 59.329; 18.069
+city; helsinki; Хельсинки; 60.170; 24.938
+city; tallinn; Таллин; 59.437; 24.754
+city; riga; Рига; 56.950; 24.105
+city; vilnius; Вильнюс; 54.687; 25.280
+city; gdansk; Гданьск; 54.352; 18.646
+city; warsaw; Варшава; 52.230; 21.012
+city; krakow; Краков; 50.065; 19.945
+city; prague; Прага; 50.076; 14.438
+city; vienna; Вена; 48.208; 16.374
+city; budapest; Будапешт; 47.498; 19.040
+city; zagreb; Загреб; 45.815; 15.982
+city; belgrade; Белград; 44.787; 20.457
+city; bucharest; Бухарест; 44.427; 26.103
+city; sofia; София; 42.698; 23.322
+city; athens; Афины; 37.984; 23.728
+city; istanbul; Стамбул; 41.008; 28.978
+city; kyiv; Киев; 50.450; 30.524
+city; odesa; Одесса; 46.482; 30.723
+city; minsk; Минск; 53.905; 27.561
+city; st_petersburg; Санкт-Петербург; 59.934; 30.336
+city; moscow; Москва; 55.756; 37.617
+city; kazan; Казань; 55.796; 49.108
+city; volgograd; Волгоград; 48.708; 44.513
+city; rostov; Ростов-на-Дону; 47.236; 39.713
+
+# ---------- Линии ----------
+
+# Британия и Ирландия
+line; london; manchester
+line; manchester; edinburgh
+line; manchester; dublin
+
+# Под Ла-Маншем
+line; london; paris
+line; london; brussels
+
+# Франция
+line; paris; brussels
+line; paris; lyon
+line; paris; bordeaux
+line; paris; zurich
+line; bordeaux; lyon
+line; bordeaux; marseille
+line; lyon; marseille
+line; lyon; zurich
+line; lyon; milan
+line; marseille; milan
+line; marseille; barcelona
+
+# Иберия
+line; bordeaux; madrid
+line; bordeaux; barcelona
+line; barcelona; valencia
+line; madrid; valencia
+line; madrid; seville
+line; madrid; porto
+line; seville; lisbon
+line; lisbon; porto
+
+# Бенилюкс и Германия
+line; brussels; amsterdam
+line; brussels; cologne
+line; amsterdam; cologne
+line; amsterdam; hamburg
+line; cologne; frankfurt
+line; cologne; hamburg
+line; frankfurt; berlin
+line; frankfurt; munich
+line; frankfurt; zurich
+line; frankfurt; prague
+line; hamburg; berlin
+line; berlin; prague
+line; berlin; gdansk
+line; berlin; warsaw
+
+# Альпы и Италия
+line; munich; zurich
+line; munich; venice
+line; munich; prague
+line; munich; vienna
+line; zurich; milan
+line; milan; venice
+line; venice; rome
+line; venice; zagreb
+line; rome; naples
+
+# Скандинавия и Балтика
+line; hamburg; copenhagen
+line; copenhagen; stockholm
+line; oslo; stockholm
+line; helsinki; st_petersburg
+line; helsinki; tallinn
+line; tallinn; riga
+line; riga; vilnius
+line; vilnius; gdansk
+line; vilnius; warsaw
+line; vilnius; minsk
+line; gdansk; warsaw
+
+# Центральная и Восточная Европа
+line; warsaw; krakow
+line; warsaw; minsk
+line; warsaw; kyiv
+line; krakow; prague
+line; krakow; vienna
+line; krakow; budapest
+line; prague; vienna
+line; vienna; budapest
+line; vienna; zagreb
+line; budapest; zagreb
+line; budapest; belgrade
+line; budapest; bucharest
+line; zagreb; belgrade
+line; belgrade; sofia
+line; bucharest; sofia
+line; bucharest; istanbul
+line; bucharest; odesa
+line; sofia; athens
+line; sofia; istanbul
+line; athens; istanbul
+line; kyiv; odesa
+line; kyiv; minsk
+line; kyiv; moscow
+line; kyiv; rostov
+line; odesa; rostov
+line; minsk; moscow
+line; st_petersburg; moscow
+line; moscow; kazan
+line; volgograd; rostov
+
+# Морская линия на Исландию
+line; edinburgh; reykjavik

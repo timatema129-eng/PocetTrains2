@@ -1,0 +1,57 @@
+# Регион «Южная Америка» — источник данных для Tools → Train Manager → Import Map Data.
+# Ключевые города страны, реальные координаты. Линии проведены по географическому правилу:
+# соседние города, правдоподобные сухопутные коридоры и несколько морских переправ.
+# Формат и общие настройки карты — в файле _World.txt.
+
+region; south_america; Южная Америка; 15000
+
+# ---------- Города ----------
+city; bogota; Богота; 4.711; -74.072
+city; caracas; Каракас; 10.481; -66.904
+city; quito; Кито; -0.180; -78.468
+city; lima; Лима; -12.046; -77.043
+city; la_paz; Ла-Пас; -16.490; -68.119
+city; santiago; Сантьяго; -33.449; -70.669
+city; cordoba; Кордова; -31.420; -64.188
+city; buenos_aires; Буэнос-Айрес; -34.604; -58.382
+city; montevideo; Монтевидео; -34.901; -56.164
+city; asuncion; Асунсьон; -25.264; -57.576
+city; porto_alegre; Порту-Алегри; -30.035; -51.218
+city; sao_paulo; Сан-Паулу; -23.551; -46.633
+city; rio; Рио-де-Жанейро; -22.907; -43.173
+city; brasilia; Бразилиа; -15.794; -47.882
+city; salvador; Салвадор; -12.977; -38.501
+city; recife; Ресифи; -8.048; -34.877
+city; fortaleza; Форталеза; -3.732; -38.527
+city; belem; Белен; -1.456; -48.490
+city; manaus; Манаус; -3.119; -60.022
+city; punta_arenas; Пунта-Аренас; -53.163; -70.917
+
+# ---------- Линии ----------
+line; bogota; caracas
+line; bogota; quito
+line; caracas; manaus
+line; quito; lima
+line; lima; la_paz
+line; la_paz; cordoba
+line; la_paz; asuncion
+line; santiago; cordoba
+line; cordoba; buenos_aires
+line; cordoba; asuncion
+line; buenos_aires; montevideo
+line; buenos_aires; asuncion
+line; buenos_aires; punta_arenas
+line; montevideo; porto_alegre
+line; asuncion; porto_alegre
+line; asuncion; sao_paulo
+line; porto_alegre; sao_paulo
+line; sao_paulo; rio
+line; sao_paulo; brasilia
+line; rio; brasilia
+line; rio; salvador
+line; brasilia; salvador
+line; brasilia; belem
+line; salvador; recife
+line; recife; fortaleza
+line; fortaleza; belem
+line; belem; manaus

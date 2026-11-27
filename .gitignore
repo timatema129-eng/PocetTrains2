@@ -17,3 +17,16 @@ Recordings/
 *.pfx
 *.p12
 *.keystore
+# Создаётся в Unity кнопками Tools → Train Manager (Import Map Data / Build Paris Prototype Scene).
+# Это не исходники: у каждого пересобирается локально, поэтому в Git не хранится и не мешает Pull.
+/Assets/Data/*
+!/Assets/Data/MapSource/
+/Assets/Data/MapSource/*.meta
+/Assets/Data.meta
+/Assets/Scenes/
+/Assets/Scenes.meta
+# .meta к коду и арту Unity создаёт сама; сцена генерируется локально, поэтому GUID могут быть свои у каждого
+/Assets/Scripts.meta
+/Assets/Scripts/**/*.meta
+/Assets/Art.meta
+/Assets/Art/**/*.meta

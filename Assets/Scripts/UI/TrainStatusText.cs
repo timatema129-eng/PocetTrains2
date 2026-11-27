@@ -1,0 +1,65 @@
+using TMPro;
+using UnityEngine;
+using TrainManager.Core;
+using TrainManager.Data;
+using TrainManager.Trains;
+
+namespace TrainManager.UI
+{
+    /// <summary>
+    /// Текст со статусом поезда — чтобы всё было видно и проверяемо на экране.
+    /// </summary>
+    public class TrainStatusText : MonoBehaviour
+    {
+        public GameRoot root;
+        public TMP_Text text;
+
+        public TrainSelection selection;
+
+        private void Update()
+        {
+            if (root == null || text == null || !root.IsReady) return;
+
+            TrainInstance train = selection != null ? selection.Selected : root.Trains.GetTrainByIndex(0);
+            if (train == null)
+            {
+                text.text = "Нет поезда";
+                return;
+            }
+
+            string line;
+            switch (train.state)
+            {
+                case TrainState.Moving:
+                    root.Trains.GetPosition(train, out _, out string nextId, out _);
+                    line = $"В пути: {root.Trains.DescribeStops(train.trip.stopIds)} — " +
+                           $"{root.Trains.GetTripProgress(train) * 100f:0}%\n" +
+                           $"Следующая остановка: {CityName(nextId)}, до конечной {root.Trains.GetSecondsLeft(train):0.0} с";
+                    break;
+                case TrainState.Arrived:
+                    line = $"Прибыл: {CityName(train.currentCityId)}";
+                    break;
+                case TrainState.Stranded:
+                    line = "Сломался на линии — буксировка в списке «Поезда»";
+                    break;
+                case TrainState.OutOfFuel:
+                    line = $"Нет топлива: {CityName(train.currentCityId)} — заправь в окне станции";
+                    break;
+                default:
+                    line = $"Стоит: {CityName(train.currentCityId)}";
+                    break;
+            }
+
+            text.text = $"Поезд «{root.Trains.GetDisplayName(train)}» ({train.instanceId})\n" +
+                        $"Состояние: {train.state}, вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}, " +
+                        $"топливо {train.fuel:0.#}/{root.Fuel.GetCapacity(train):0.#}, " +
+                        $"состояние {train.condition:0}% ({MaintenanceService.Describe(train.breakdown)})\n{line}";
+        }
+
+        private string CityName(string cityId)
+        {
+            CityData city = root.Database.GetCity(cityId);
+            return city != null ? city.displayName : "?";
+        }
+    }
+}

@@ -1,0 +1,95 @@
+# Регион «Северная Америка» — источник данных для Tools → Train Manager → Import Map Data.
+# Ключевые города страны, реальные координаты. Линии проведены по географическому правилу:
+# соседние города, правдоподобные сухопутные коридоры и несколько морских переправ.
+# Формат и общие настройки карты — в файле _World.txt.
+
+region; north_america; Северная Америка; 20000
+
+# ---------- Города ----------
+city; anchorage; Анкоридж; 61.218; -149.900
+city; vancouver; Ванкувер; 49.283; -123.121
+city; seattle; Сиэтл; 47.606; -122.332
+city; calgary; Калгари; 51.045; -114.072
+city; winnipeg; Виннипег; 49.895; -97.138
+city; toronto; Торонто; 43.653; -79.383
+city; montreal; Монреаль; 45.502; -73.567
+city; halifax; Галифакс; 44.649; -63.575
+city; nuuk; Нуук; 64.181; -51.694
+city; san_francisco; Сан-Франциско; 37.775; -122.419
+city; los_angeles; Лос-Анджелес; 34.052; -118.244
+city; salt_lake; Солт-Лейк-Сити; 40.761; -111.891
+city; phoenix; Финикс; 33.448; -112.074
+city; denver; Денвер; 39.739; -104.990
+city; dallas; Даллас; 32.777; -96.797
+city; houston; Хьюстон; 29.760; -95.370
+city; kansas_city; Канзас-Сити; 39.100; -94.579
+city; minneapolis; Миннеаполис; 44.978; -93.265
+city; chicago; Чикаго; 41.878; -87.630
+city; new_orleans; Новый Орлеан; 29.951; -90.072
+city; atlanta; Атланта; 33.749; -84.388
+city; miami; Майами; 25.762; -80.192
+city; washington; Вашингтон; 38.907; -77.037
+city; new_york; Нью-Йорк; 40.713; -74.006
+city; boston; Бостон; 42.360; -71.059
+city; havana; Гавана; 23.113; -82.366
+city; monterrey; Монтеррей; 25.687; -100.316
+city; guadalajara; Гвадалахара; 20.659; -103.349
+city; mexico_city; Мехико; 19.433; -99.133
+city; guatemala; Гватемала; 14.635; -90.507
+city; panama; Панама; 8.982; -79.520
+
+# ---------- Линии ----------
+
+# Запад
+line; anchorage; vancouver
+line; vancouver; seattle
+line; vancouver; calgary
+line; seattle; san_francisco
+line; seattle; salt_lake
+line; calgary; winnipeg
+line; calgary; salt_lake
+line; san_francisco; los_angeles
+line; san_francisco; salt_lake
+line; los_angeles; salt_lake
+line; los_angeles; phoenix
+line; salt_lake; phoenix
+line; salt_lake; denver
+line; phoenix; denver
+
+# Центр
+line; winnipeg; minneapolis
+line; denver; dallas
+line; denver; kansas_city
+line; dallas; houston
+line; dallas; kansas_city
+line; houston; new_orleans
+line; kansas_city; minneapolis
+line; kansas_city; chicago
+line; kansas_city; atlanta
+line; minneapolis; chicago
+line; chicago; atlanta
+line; new_orleans; atlanta
+
+# Восток
+line; toronto; montreal
+line; toronto; chicago
+line; toronto; washington
+line; toronto; new_york
+line; montreal; boston
+line; montreal; halifax
+line; halifax; boston
+line; new_orleans; miami
+line; atlanta; miami
+line; atlanta; washington
+line; washington; new_york
+line; new_york; boston
+line; miami; havana
+
+# Мексика и Центральная Америка
+line; phoenix; monterrey
+line; houston; monterrey
+line; monterrey; guadalajara
+line; monterrey; mexico_city
+line; guadalajara; mexico_city
+line; mexico_city; guatemala
+line; guatemala; panama

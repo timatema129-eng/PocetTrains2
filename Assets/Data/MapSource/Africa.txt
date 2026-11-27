@@ -1,0 +1,89 @@
+# Регион «Африка» — источник данных для Tools → Train Manager → Import Map Data.
+# Ключевые города страны, реальные координаты. Линии проведены по географическому правилу:
+# соседние города, правдоподобные сухопутные коридоры и несколько морских переправ.
+# Формат и общие настройки карты — в файле _World.txt.
+
+region; africa; Африка; 12000
+
+# ---------- Города ----------
+city; casablanca; Касабланка; 33.573; -7.590
+city; algiers; Алжир; 36.754; 3.059
+city; tunis; Тунис; 36.806; 10.182
+city; tripoli; Триполи; 32.887; 13.191
+city; cairo; Каир; 30.044; 31.236
+city; alexandria; Александрия; 31.200; 29.919
+city; khartoum; Хартум; 15.501; 32.560
+city; addis_ababa; Аддис-Абеба; 9.030; 38.740
+city; mogadishu; Могадишо; 2.047; 45.318
+city; nairobi; Найроби; -1.292; 36.822
+city; kampala; Кампала; 0.347; 32.582
+city; dar_es_salaam; Дар-эс-Салам; -6.792; 39.208
+city; dakar; Дакар; 14.716; -17.467
+city; bamako; Бамако; 12.639; -8.003
+city; abidjan; Абиджан; 5.360; -4.008
+city; accra; Аккра; 5.604; -0.187
+city; lagos; Лагос; 6.524; 3.379
+city; abuja; Абуджа; 9.076; 7.399
+city; ndjamena; Нджамена; 12.134; 15.056
+city; douala; Дуала; 4.051; 9.768
+city; kinshasa; Киншаса; -4.441; 15.266
+city; luanda; Луанда; -8.839; 13.289
+city; lusaka; Лусака; -15.388; 28.323
+city; harare; Хараре; -17.829; 31.052
+city; windhoek; Виндхук; -22.560; 17.066
+city; johannesburg; Йоханнесбург; -26.204; 28.047
+city; maputo; Мапуту; -25.969; 32.573
+city; durban; Дурбан; -29.858; 31.022
+city; cape_town; Кейптаун; -33.925; 18.424
+city; antananarivo; Антананариву; -18.879; 47.508
+
+# ---------- Линии ----------
+
+# Север
+line; casablanca; algiers
+line; algiers; tunis
+line; tunis; tripoli
+line; tripoli; alexandria
+line; alexandria; cairo
+line; casablanca; dakar
+
+# Восток
+line; cairo; khartoum
+line; khartoum; addis_ababa
+line; khartoum; ndjamena
+line; addis_ababa; mogadishu
+line; addis_ababa; nairobi
+line; addis_ababa; kampala
+line; mogadishu; nairobi
+line; mogadishu; dar_es_salaam
+line; nairobi; kampala
+line; nairobi; dar_es_salaam
+line; dar_es_salaam; lusaka
+line; dar_es_salaam; antananarivo
+
+# Запад и центр
+line; dakar; bamako
+line; bamako; abidjan
+line; abidjan; accra
+line; accra; lagos
+line; lagos; abuja
+line; lagos; douala
+line; abuja; ndjamena
+line; abuja; douala
+line; ndjamena; douala
+line; douala; kinshasa
+line; kampala; kinshasa
+line; kinshasa; luanda
+
+# Юг
+line; luanda; windhoek
+line; lusaka; harare
+line; harare; johannesburg
+line; harare; maputo
+line; windhoek; johannesburg
+line; windhoek; cape_town
+line; johannesburg; maputo
+line; johannesburg; durban
+line; johannesburg; cape_town
+line; maputo; durban
+line; durban; cape_town
