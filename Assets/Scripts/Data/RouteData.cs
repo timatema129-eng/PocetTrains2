@@ -1,10 +1,13 @@
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 namespace TrainManager.Data
 {
     /// <summary>
-    /// Фиксированный маршрут из одного города в другой.
-    /// Никакой случайности: откуда, куда и какая дистанция — задано заранее.
+    /// Маршрут — цепочка городов: первый — откуда, последний — куда, между ними — промежуточные остановки.
+    /// Между каждой парой соседних городов должна существовать линия (RailwayLineData).
+    /// Дистанция маршрута не задаётся вручную, а складывается из дистанций линий.
     /// </summary>
     [CreateAssetMenu(fileName = "Route_", menuName = "Train Manager/Route Data")]
     public class RouteData : ScriptableObject
@@ -12,18 +15,43 @@ namespace TrainManager.Data
         [Header("ID")]
         public string routeId;
 
-        [Header("Cities")]
-        public CityData from;
-        public CityData to;
+        [Header("Stops")]
+        [Tooltip("Города по порядку. Минимум два. Пример: Лондон, Париж, Берлин")]
+        public List<CityData> stops = new List<CityData>();
 
-        [Header("Distance")]
-        [Min(1f)]
-        [Tooltip("Дистанция в игровых единицах. Время в пути = дистанция / скорость поезда")]
-        public float distance = 100f;
+        public int StopCount => stops != null ? stops.Count : 0;
 
-        public bool IsValid => from != null && to != null && from != to && distance > 0f;
+        public CityData First => StopCount > 0 ? stops[0] : null;
+        public CityData Last => StopCount > 0 ? stops[StopCount - 1] : null;
 
-        public string DisplayName =>
-            $"{(from != null ? from.displayName : "?")} — {(to != null ? to.displayName : "?")}";
+        /// <summary>Минимум два города, без пустых ячеек и без одного и того же города подряд.</summary>
+        public bool IsValid
+        {
+            get
+            {
+                if (StopCount < 2) return false;
+                for (int i = 0; i < stops.Count; i++)
+                {
+                    if (stops[i] == null) return false;
+                    if (i > 0 && stops[i] == stops[i - 1]) return false;
+                }
+                return true;
+            }
+        }
+
+        public string DisplayName
+        {
+            get
+            {
+                if (StopCount == 0) return "?";
+                var sb = new StringBuilder();
+                for (int i = 0; i < stops.Count; i++)
+                {
+                    if (i > 0) sb.Append(" — ");
+                    sb.Append(stops[i] != null ? stops[i].displayName : "?");
+                }
+                return sb.ToString();
+            }
+        }
     }
 }

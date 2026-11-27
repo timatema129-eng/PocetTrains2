@@ -1,36 +1,35 @@
 using System.Collections.Generic;
 using UnityEngine;
-using TrainManager.Data;
 
 namespace TrainManager.Map
 {
     /// <summary>
-    /// Карта: знает, где на экране стоит каждая станция.
-    /// Станции (StationView) и поезд (TrainView) должны быть дочерними объектами карты.
+    /// Карта: знает, где на экране стоит каждая станция (по cityId).
+    /// Станции (StationView) и поезда (TrainView) должны быть дочерними объектами карты.
     /// </summary>
     public class MapView : MonoBehaviour
     {
-        private readonly Dictionary<CityData, StationView> stations = new Dictionary<CityData, StationView>();
+        private readonly Dictionary<string, StationView> stations = new Dictionary<string, StationView>();
 
         private void Awake()
         {
             foreach (StationView station in GetComponentsInChildren<StationView>(true))
             {
-                if (station.city == null)
+                if (station.city == null || string.IsNullOrEmpty(station.city.cityId))
                 {
-                    Debug.LogWarning($"[Map] У станции {station.name} не назначен City", station);
+                    Debug.LogWarning($"[Map] У станции {station.name} не назначен City или пустой cityId", station);
                     continue;
                 }
-                stations[station.city] = station;
+                stations[station.city.cityId] = station;
             }
         }
 
         /// <summary>Позиция станции города на карте. false — если такой станции нет.</summary>
-        public bool TryGetStationPosition(CityData city, out Vector2 position)
+        public bool TryGetStationPosition(string cityId, out Vector2 position)
         {
-            if (city != null && stations.TryGetValue(city, out StationView station))
+            if (!string.IsNullOrEmpty(cityId) && stations.TryGetValue(cityId, out StationView station))
             {
-                position = city.mapPosition;
+                position = station.city.mapPosition;
                 return true;
             }
 

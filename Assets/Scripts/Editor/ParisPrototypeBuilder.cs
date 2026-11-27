@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -6,6 +7,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TrainManager.Core;
 using TrainManager.Data;
 using TrainManager.Map;
 using TrainManager.Trains;
@@ -18,9 +20,10 @@ namespace TrainManager.EditorTools
 {
     /// <summary>
     /// Меню Tools → Train Manager → Build Paris Prototype Scene.
-    /// Одним нажатием создаёт данные (города, маршруты, поезд) и сцену ParisPrototype
-    /// со всеми объектами и уже назначенными ссылками.
+    /// Одним нажатием создаёт данные (регион, города, линии, маршруты, поезд, GameDatabase)
+    /// и сцену ParisPrototype со всеми объектами и уже назначенными ссылками.
     /// Уже существующие файлы данных НЕ перезаписываются — твои правки в них сохранятся.
+    /// Tools → Train Manager → Delete Save удаляет сохранение (игра начнётся заново).
     /// </summary>
     public static class ParisPrototypeBuilder
     {
@@ -42,34 +45,60 @@ namespace TrainManager.EditorTools
             }
 
             // ---------- 1. Данные ----------
+            EnsureFolder(DataRoot + "/Regions");
             EnsureFolder(DataRoot + "/Cities");
+            EnsureFolder(DataRoot + "/Lines");
             EnsureFolder(DataRoot + "/Routes");
             EnsureFolder(DataRoot + "/Trains");
             EnsureFolder("Assets/Scenes");
 
-            CityData paris = LoadOrCreate<CityData>(DataRoot + "/Cities/City_Paris.asset", c =>
+            RegionData europe = LoadOrCreate<RegionData>(DataRoot + "/Regions/Region_Europe.asset", r =>
             {
-                c.cityId = "paris"; c.displayName = "Париж"; c.mapPosition = new Vector2(0f, -150f);
-            });
-            CityData london = LoadOrCreate<CityData>(DataRoot + "/Cities/City_London.asset", c =>
-            {
-                c.cityId = "london"; c.displayName = "Лондон"; c.mapPosition = new Vector2(-500f, 250f);
-            });
-            CityData berlin = LoadOrCreate<CityData>(DataRoot + "/Cities/City_Berlin.asset", c =>
-            {
-                c.cityId = "berlin"; c.displayName = "Берлин"; c.mapPosition = new Vector2(500f, 250f);
+                r.regionId = "europe"; r.displayName = "Европа";
             });
 
-            RouteData parisLondon = CreateRoute("Route_Paris_London", "paris_london", paris, london, 300f);
-            RouteData parisBerlin = CreateRoute("Route_Paris_Berlin", "paris_berlin", paris, berlin, 600f);
-            RouteData londonParis = CreateRoute("Route_London_Paris", "london_paris", london, paris, 300f);
-            RouteData berlinParis = CreateRoute("Route_Berlin_Paris", "berlin_paris", berlin, paris, 600f);
+            CityData paris = CreateCity("City_Paris", "paris", "Париж", new Vector2(0f, -150f), europe);
+            CityData london = CreateCity("City_London", "london", "Лондон", new Vector2(-500f, 250f), europe);
+            CityData berlin = CreateCity("City_Berlin", "berlin", "Берлин", new Vector2(500f, 250f), europe);
+
+            RailwayLineData lineParisLondon = CreateLineData("Line_Paris_London", "paris_london", europe,
+                paris, london, 300f, new Color(0.95f, 0.75f, 0.25f));
+            RailwayLineData lineParisBerlin = CreateLineData("Line_Paris_Berlin", "paris_berlin", europe,
+                paris, berlin, 600f, new Color(0.35f, 0.85f, 0.55f));
+
+            var routes = new List<RouteData>
+            {
+                CreateRoute("Route_Paris_London", "paris_london", paris, london),
+                CreateRoute("Route_Paris_Berlin", "paris_berlin", paris, berlin),
+                CreateRoute("Route_London_Paris", "london_paris", london, paris),
+                CreateRoute("Route_Berlin_Paris", "berlin_paris", berlin, paris),
+                // Сквозные маршруты через Париж — проверка цепочки городов
+                CreateRoute("Route_London_Paris_Berlin", "london_paris_berlin", london, paris, berlin),
+                CreateRoute("Route_Berlin_Paris_London", "berlin_paris_london", berlin, paris, london)
+            };
 
             TrainData standard = LoadOrCreate<TrainData>(DataRoot + "/Trains/Train_Standard.asset", t =>
             {
                 t.trainId = "train_standard"; t.displayName = "Стандарт"; t.rarity = TrainRarity.Common;
                 t.baseSpeed = 50f; t.maxWagons = 8; t.maxFuel = 25; t.maxFuelWagons = 1; t.partsRequiredForAssembly = 3;
             });
+
+            GameDatabase database = LoadOrCreate<GameDatabase>(DataRoot + "/GameDatabase.asset", d =>
+            {
+                d.secondsPerTimeUnit = 1f;
+            });
+            AddUnique(database.regions, europe);
+            AddUnique(database.cities, paris);
+            AddUnique(database.cities, london);
+            AddUnique(database.cities, berlin);
+            AddUnique(database.lines, lineParisLondon);
+            AddUnique(database.lines, lineParisBerlin);
+            foreach (RouteData route in routes) AddUnique(database.routes, route);
+            AddUnique(database.trains, standard);
+            if (database.startCity == null) database.startCity = paris;
+            if (database.startTrain == null) database.startTrain = standard;
+            database.ClearCache();
+            EditorUtility.SetDirty(database);
 
             AssetDatabase.SaveAssets();
 
@@ -85,6 +114,13 @@ namespace TrainManager.EditorTools
             cameraGo.transform.position = new Vector3(0f, 0f, -10f);
 
             CreateEventSystem();
+
+            // Точка входа игры: загрузка/новая игра, время, сохранение
+            var rootGo = new GameObject("GameRoot");
+            GameRoot root = rootGo.AddComponent<GameRoot>();
+            var rootSo = new SerializedObject(root);
+            rootSo.FindProperty("database").objectReferenceValue = database;
+            rootSo.ApplyModifiedPropertiesWithoutUndo();
 
             // Canvas
             var canvasGo = new GameObject("Canvas", typeof(RectTransform));
@@ -106,18 +142,12 @@ namespace TrainManager.EditorTools
             Stretch((RectTransform)mapGo.transform);
             MapView map = mapGo.AddComponent<MapView>();
 
-            CreateLine("Line_Paris_London", mapGo.transform, paris.mapPosition, london.mapPosition);
-            CreateLine("Line_Paris_Berlin", mapGo.transform, paris.mapPosition, berlin.mapPosition);
+            foreach (RailwayLineData line in database.lines)
+                CreateLine(line, mapGo.transform);
 
             CreateStation(paris, mapGo.transform);
             CreateStation(london, mapGo.transform);
             CreateStation(berlin, mapGo.transform);
-
-            // Логика поезда — отдельный объект (не UI)
-            var trainLogicGo = new GameObject("Train_Standard (Logic)");
-            TrainController train = trainLogicGo.AddComponent<TrainController>();
-            train.trainData = standard;
-            train.startCity = paris;
 
             // Картинка поезда на карте (последней — чтобы рисовалась поверх станций)
             Image trainImage = CreateImage("Train_Standard (View)", mapGo.transform, new Color(0.85f, 0.2f, 0.2f));
@@ -125,8 +155,9 @@ namespace TrainManager.EditorTools
             trainImage.rectTransform.anchoredPosition = paris.mapPosition;
             trainImage.raycastTarget = false;
             TrainView trainView = trainImage.gameObject.AddComponent<TrainView>();
-            trainView.train = train;
+            trainView.root = root;
             trainView.map = map;
+            trainView.trainIndex = 0;
 
             // Статус
             TMP_Text status = CreateText("TrainStatus", canvasT, "", 32, TextAlignmentOptions.TopLeft);
@@ -135,9 +166,9 @@ namespace TrainManager.EditorTools
             statusRect.anchorMax = new Vector2(0f, 1f);
             statusRect.pivot = new Vector2(0f, 1f);
             statusRect.anchoredPosition = new Vector2(40f, -30f);
-            statusRect.sizeDelta = new Vector2(900f, 160f);
+            statusRect.sizeDelta = new Vector2(1200f, 200f);
             TrainStatusText statusText = status.gameObject.AddComponent<TrainStatusText>();
-            statusText.train = train;
+            statusText.root = root;
             statusText.text = status;
 
             // Кнопки маршрутов
@@ -148,37 +179,81 @@ namespace TrainManager.EditorTools
             panelRect.anchorMax = new Vector2(0.5f, 0f);
             panelRect.pivot = new Vector2(0.5f, 0f);
             panelRect.anchoredPosition = new Vector2(0f, 40f);
-            panelRect.sizeDelta = new Vector2(1500f, 130f);
-            var layout = panelGo.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 30f;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = true;
+            panelRect.sizeDelta = new Vector2(1560f, 230f);
+            var grid = panelGo.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(500f, 100f);
+            grid.spacing = new Vector2(30f, 30f);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 3;
+            grid.childAlignment = TextAnchor.LowerCenter;
 
-            CreateRouteButton(panelGo.transform, train, parisLondon);
-            CreateRouteButton(panelGo.transform, train, parisBerlin);
-            CreateRouteButton(panelGo.transform, train, londonParis);
-            CreateRouteButton(panelGo.transform, train, berlinParis);
+            foreach (RouteData route in routes)
+                CreateRouteButton(panelGo.transform, root, route);
 
             // ---------- 3. Сохранение ----------
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
 
-            Selection.activeGameObject = trainLogicGo;
+            Selection.activeGameObject = rootGo;
             Debug.Log("[Train Manager] Сцена ParisPrototype создана: " + ScenePath + ". Нажми Play.");
         }
 
         // ================= Вспомогательное =================
 
-        private static RouteData CreateRoute(string file, string id, CityData from, CityData to, float distance)
+        [MenuItem("Tools/Train Manager/Delete Save")]
+        public static void DeleteSave()
         {
-            return LoadOrCreate<RouteData>(DataRoot + "/Routes/" + file + ".asset", r =>
+            if (!SaveService.HasSave)
             {
-                r.routeId = id; r.from = from; r.to = to; r.distance = distance;
+                Debug.Log("[Train Manager] Сохранения нет: " + SaveService.SavePath);
+                return;
+            }
+            if (!EditorUtility.DisplayDialog("Train Manager",
+                    "Удалить сохранение? Игра начнётся заново.\n" + SaveService.SavePath, "Удалить", "Отмена"))
+                return;
+
+            SaveService.Delete();
+            Debug.Log("[Train Manager] Сохранение удалено: " + SaveService.SavePath);
+        }
+
+        private static CityData CreateCity(string file, string id, string displayName, Vector2 mapPosition, RegionData region)
+        {
+            return LoadOrCreate<CityData>(DataRoot + "/Cities/" + file + ".asset", c =>
+            {
+                c.cityId = id; c.displayName = displayName; c.mapPosition = mapPosition; c.region = region;
             });
+        }
+
+        private static RailwayLineData CreateLineData(string file, string id, RegionData region,
+            CityData a, CityData b, float distance, Color color)
+        {
+            return LoadOrCreate<RailwayLineData>(DataRoot + "/Lines/" + file + ".asset", l =>
+            {
+                l.lineId = id; l.region = region; l.cityA = a; l.cityB = b; l.distance = distance; l.color = color;
+            });
+        }
+
+        private static RouteData CreateRoute(string file, string id, params CityData[] stops)
+        {
+            RouteData route = LoadOrCreate<RouteData>(DataRoot + "/Routes/" + file + ".asset", r =>
+            {
+                r.routeId = id; r.stops = new List<CityData>(stops);
+            });
+
+            // Ассет от старой версии (откуда/куда без списка остановок) — заполняем остановки.
+            if (route.StopCount == 0)
+            {
+                route.stops = new List<CityData>(stops);
+                EditorUtility.SetDirty(route);
+            }
+            return route;
+        }
+
+        private static void AddUnique<T>(List<T> list, T item) where T : UnityEngine.Object
+        {
+            if (item != null && !list.Contains(item))
+                list.Add(item);
         }
 
         private static T LoadOrCreate<T>(string path, Action<T> init) where T : ScriptableObject
@@ -261,9 +336,13 @@ namespace TrainManager.EditorTools
             view.label = label;
         }
 
-        private static void CreateLine(string name, Transform map, Vector2 a, Vector2 b)
+        private static void CreateLine(RailwayLineData data, Transform map)
         {
-            Image line = CreateImage(name, map, new Color(0.9f, 0.75f, 0.3f));
+            if (data == null || !data.IsValid) return;
+
+            Vector2 a = data.cityA.mapPosition;
+            Vector2 b = data.cityB.mapPosition;
+            Image line = CreateImage("Line_" + data.lineId, map, data.color);
             line.raycastTarget = false;
             RectTransform rect = line.rectTransform;
             Vector2 delta = b - a;
@@ -272,18 +351,19 @@ namespace TrainManager.EditorTools
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
-        private static void CreateRouteButton(Transform parent, TrainController train, RouteData route)
+        private static void CreateRouteButton(Transform parent, GameRoot root, RouteData route)
         {
             Image image = CreateImage("Button_" + route.routeId, parent, new Color(0.95f, 0.95f, 0.95f));
             Button button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
 
-            TMP_Text label = CreateText("Text", image.transform, route.DisplayName, 30, TextAlignmentOptions.Center);
+            TMP_Text label = CreateText("Text", image.transform, route.DisplayName, 28, TextAlignmentOptions.Center);
             label.color = new Color(0.1f, 0.1f, 0.1f);
             Stretch(label.rectTransform);
 
             RouteButton routeButton = image.gameObject.AddComponent<RouteButton>();
-            routeButton.train = train;
+            routeButton.root = root;
+            routeButton.trainIndex = 0;
             routeButton.route = route;
             routeButton.label = label;
         }

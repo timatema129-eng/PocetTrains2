@@ -15,6 +15,7 @@ namespace TrainManager.Data
 
         [Header("Info")]
         public string displayName;
+        public RegionData region;
 
         [Header("Map")]
         [Tooltip("Позиция станции на карте (UI, пиксели от центра экрана при 1920x1080)")]

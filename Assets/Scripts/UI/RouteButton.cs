@@ -1,8 +1,8 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using TrainManager.Core;
 using TrainManager.Data;
-using TrainManager.Trains;
 
 namespace TrainManager.UI
 {
@@ -14,9 +14,12 @@ namespace TrainManager.UI
     [RequireComponent(typeof(Button))]
     public class RouteButton : MonoBehaviour
     {
-        public TrainController train;
+        public GameRoot root;
         public RouteData route;
         public TMP_Text label;
+
+        [Tooltip("Какой по счёту поезд игрока отправлять (0 — первый)")]
+        [Min(0)] public int trainIndex;
 
         private Button button;
 
@@ -24,26 +27,34 @@ namespace TrainManager.UI
         {
             button = GetComponent<Button>();
             button.onClick.AddListener(OnClick);
+        }
 
-            if (label != null && route != null)
-                label.text = $"{route.DisplayName}\n({route.distance:0})";
+        private void Start()
+        {
+            if (label == null || route == null) return;
+
+            float distance = root != null && root.IsReady ? root.Trains.GetRouteDistance(route) : -1f;
+            label.text = distance > 0f
+                ? $"{route.DisplayName}\n({distance:0})"
+                : $"{route.DisplayName}\n(нет линии)";
         }
 
         private void Update()
         {
-            if (train == null || route == null)
+            if (root == null || route == null || !root.IsReady)
             {
                 button.interactable = false;
                 return;
             }
 
-            button.interactable = train.CanStartRoute(route, out _);
+            TrainInstance train = root.Trains.GetTrainByIndex(trainIndex);
+            button.interactable = root.Trains.CanStartRoute(train, route, out _);
         }
 
         private void OnClick()
         {
-            if (train != null)
-                train.TryStartRoute(route);
+            if (root == null || !root.IsReady) return;
+            root.Trains.TryStartRoute(root.Trains.GetTrainByIndex(trainIndex), route);
         }
     }
 }

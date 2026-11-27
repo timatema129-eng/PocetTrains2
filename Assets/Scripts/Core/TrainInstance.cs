@@ -1,0 +1,63 @@
+using System;
+using System.Collections.Generic;
+using TrainManager.Trains;
+
+namespace TrainManager.Core
+{
+    /// <summary>
+    /// Конкретный поезд игрока (экземпляр). Модель (скорость, вагоны...) — в TrainData по modelId.
+    /// У игрока может быть несколько поездов одной модели: у каждого свой instanceId.
+    /// </summary>
+    [Serializable]
+    public class TrainInstance
+    {
+        public string instanceId;
+
+        /// <summary>trainId модели из TrainData.</summary>
+        public string modelId;
+
+        public TrainState state = TrainState.Idle;
+
+        /// <summary>Город, где стоит поезд. Пока поезд в пути — пустая строка.</summary>
+        public string currentCityId;
+
+        /// <summary>Текущая поездка. Если поезд стоит — routeId пустой.</summary>
+        public TripState trip = new TripState();
+
+        // ---- Задел на следующие этапы ----
+        public float fuel;
+        public List<string> wagonIds = new List<string>();
+
+        public bool IsMoving => state == TrainState.Moving && trip != null && trip.IsActive;
+    }
+
+    /// <summary>
+    /// Поездка, записанная через реальное время: «отправлен тогда-то, в каждый город прибывает тогда-то».
+    /// Поэтому поезд доезжает, даже если игра была закрыта.
+    /// </summary>
+    [Serializable]
+    public class TripState
+    {
+        public string routeId;
+
+        /// <summary>Города маршрута по порядку (cityId).</summary>
+        public List<string> stopIds = new List<string>();
+
+        /// <summary>
+        /// Время прибытия в каждый город (Unix-время, мс). [0] — время отправления из первого города.
+        /// </summary>
+        public List<long> stopTimesUnixMs = new List<long>();
+
+        /// <summary>Индекс последнего города, до которого поезд уже доехал (0 — только отправился).</summary>
+        public int reachedStopIndex;
+
+        public bool IsActive => !string.IsNullOrEmpty(routeId) &&
+                                stopIds != null && stopTimesUnixMs != null &&
+                                stopIds.Count >= 2 && stopIds.Count == stopTimesUnixMs.Count;
+
+        public int LastIndex => stopIds.Count - 1;
+
+        public long DepartureUnixMs => stopTimesUnixMs[0];
+        public long FinalArrivalUnixMs => stopTimesUnixMs[LastIndex];
+    }
+}

@@ -1,5 +1,7 @@
 using TMPro;
 using UnityEngine;
+using TrainManager.Core;
+using TrainManager.Data;
 using TrainManager.Trains;
 
 namespace TrainManager.UI
@@ -9,39 +11,52 @@ namespace TrainManager.UI
     /// </summary>
     public class TrainStatusText : MonoBehaviour
     {
-        public TrainController train;
+        public GameRoot root;
         public TMP_Text text;
+
+        [Tooltip("Какой по счёту поезд игрока показывать (0 — первый)")]
+        [Min(0)] public int trainIndex;
 
         private void Update()
         {
-            if (train == null || text == null) return;
+            if (root == null || text == null || !root.IsReady) return;
 
-            string trainName = train.trainData != null ? train.trainData.displayName : train.name;
+            TrainInstance train = root.Trains.GetTrainByIndex(trainIndex);
+            if (train == null)
+            {
+                text.text = "Нет поезда";
+                return;
+            }
+
             string line;
-
-            switch (train.State)
+            switch (train.state)
             {
                 case TrainState.Moving:
-                    line = $"В пути: {train.ActiveRoute.DisplayName} — {train.Progress * 100f:0}% " +
-                           $"(всего {train.TravelDuration:0.0} с)";
+                    RouteData route = root.Database.GetRoute(train.trip.routeId);
+                    root.Trains.GetPosition(train, out _, out string nextId, out _);
+                    line = $"В пути: {(route != null ? route.DisplayName : train.trip.routeId)} — " +
+                           $"{root.Trains.GetTripProgress(train) * 100f:0}%\n" +
+                           $"Следующая остановка: {CityName(nextId)}, до конечной {root.Trains.GetSecondsLeft(train):0.0} с";
                     break;
                 case TrainState.Arrived:
-                    line = $"Прибыл: {CityName(train)}";
+                    line = $"Прибыл: {CityName(train.currentCityId)}";
                     break;
                 case TrainState.OutOfFuel:
                     line = "Нет топлива";
                     break;
                 default:
-                    line = $"Стоит: {CityName(train)}";
+                    line = $"Стоит: {CityName(train.currentCityId)}";
                     break;
             }
 
-            text.text = $"Поезд «{trainName}»\nСостояние: {train.State}\n{line}";
+            text.text = $"Поезд «{root.Trains.GetDisplayName(train)}» ({train.instanceId})\n" +
+                        $"Состояние: {train.state}\n{line}";
         }
 
-        private static string CityName(TrainController t)
+        private string CityName(string cityId)
         {
-            return t.CurrentCity != null ? t.CurrentCity.displayName : "?";
+            CityData city = root.Database.GetCity(cityId);
+            return city != null ? city.displayName : "?";
         }
     }
 }

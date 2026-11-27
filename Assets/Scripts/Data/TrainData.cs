@@ -11,7 +11,7 @@ namespace TrainManager.Data
 
     /// <summary>
     /// Шаблон модели поезда (характеристики). Не экземпляр поезда игрока:
-    /// текущий город, топливо и маршрут хранятся в TrainController.
+    /// текущий город, топливо и маршрут хранятся в TrainInstance (GameState).
     /// Специально без [Range], чтобы баланс не был зашит в код.
     /// </summary>
     [CreateAssetMenu(fileName = "Train_", menuName = "Train Manager/Train Data")]
