@@ -177,6 +177,30 @@ namespace TrainManager.Data
         [Min(0)] public int bonusCoinsMax = 80;
         [Min(0)] public int bonusDollars = 1;
 
+        [Header("Trip side view (только картинка)")]
+        public List<TripBiome> tripBiomes = new List<TripBiome>
+        {
+            new TripBiome { biomeId = "winter", displayName = "Зима", snow = true, decor = BiomeDecor.Trees,
+                skyColor = new Color(0.72f, 0.8f, 0.88f), hillsColor = new Color(0.85f, 0.88f, 0.92f),
+                groundColor = new Color(0.93f, 0.95f, 0.98f), decorColor = new Color(0.2f, 0.35f, 0.3f),
+                cityIds = new List<string> { "st_petersburg", "moscow", "kazan", "yekaterinburg", "omsk", "novosibirsk",
+                    "irkutsk", "yakutsk", "khabarovsk", "reykjavik", "oslo", "stockholm", "helsinki", "anchorage" } },
+            new TripBiome { biomeId = "forest", displayName = "Лес", decor = BiomeDecor.Trees,
+                regionIds = new List<string> { "europe", "north_america" } },
+            new TripBiome { biomeId = "desert", displayName = "Пустыня", decor = BiomeDecor.Cactus,
+                skyColor = new Color(0.95f, 0.85f, 0.6f), hillsColor = new Color(0.85f, 0.7f, 0.45f),
+                groundColor = new Color(0.9f, 0.78f, 0.5f), decorColor = new Color(0.35f, 0.55f, 0.3f),
+                regionIds = new List<string> { "africa" } },
+            new TripBiome { biomeId = "steppe", displayName = "Степь и горы", decor = BiomeDecor.Rocks,
+                skyColor = new Color(0.6f, 0.75f, 0.9f), hillsColor = new Color(0.55f, 0.55f, 0.6f),
+                groundColor = new Color(0.65f, 0.65f, 0.4f), decorColor = new Color(0.45f, 0.42f, 0.4f),
+                regionIds = new List<string> { "asia" } },
+            new TripBiome { biomeId = "tropics", displayName = "Тропики", decor = BiomeDecor.Palms,
+                skyColor = new Color(0.5f, 0.8f, 0.95f), hillsColor = new Color(0.2f, 0.55f, 0.3f),
+                groundColor = new Color(0.35f, 0.65f, 0.3f), decorColor = new Color(0.1f, 0.45f, 0.2f),
+                regionIds = new List<string> { "south_america", "oceania" } },
+        };
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]
@@ -187,6 +211,23 @@ namespace TrainManager.Data
             foreach (QuestTemplate q in questTemplates)
                 if (q != null && q.templateId == templateId) return q;
             return null;
+        }
+
+        /// <summary>Локация вида сбоку для города: по городу, потом по региону, иначе «лес» (или первая в списке).</summary>
+        public TripBiome GetBiome(CityData city)
+        {
+            if (tripBiomes == null || tripBiomes.Count == 0) return null;
+            if (city != null)
+            {
+                foreach (TripBiome b in tripBiomes)
+                    if (b != null && b.cityIds != null && b.cityIds.Contains(city.cityId)) return b;
+                string regionId = city.region != null ? city.region.regionId : null;
+                foreach (TripBiome b in tripBiomes)
+                    if (b != null && b.regionIds != null && regionId != null && b.regionIds.Contains(regionId)) return b;
+            }
+            foreach (TripBiome b in tripBiomes)
+                if (b != null && b.biomeId == "forest") return b;
+            return tripBiomes[0];
         }
 
         public BoxConfig GetBox(string boxId)

@@ -9,7 +9,7 @@ Unity **6000.3.12f1 (6.3 LTS)**, URP 2D, C#, Unity UI + TextMeshPro, новый 
 Assets/
 ├── Scripts/
 │   ├── Data/     Конфиги (ScriptableObject): RegionData, CityData, RailwayLineData, RouteData,
-│   │             TrainData, WagonData, BoxConfig, LinePalette и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
+│   │             TrainData, WagonData, BoxConfig, LinePalette, RewardData, TripBiome и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
 │   ├── Core/     Фундамент: GameRoot (точка входа), GameState (прогресс игрока),
 │   │             TrainInstance (поезд игрока), TrainService (правила движения),
 │   │             WalletService (монеты и доллары), WagonService (вагоны, склад, выгрузка),
@@ -26,7 +26,8 @@ Assets/
 │   ├── UI/       StationWindow (окно станции), RoutePlanner (режим маршрута), MapInteraction,
 │   │             TrainSelection (выбранный поезд), TrainListWindow (список поездов), ListRow, WalletText,
 │   │             BoxWindow (боксы и сборка), ShopWindow (магазин), QuestWindow (задания и достижения),
-│   │             AdPrompt (окно «посмотри рекламу?»), FlyingPrize (летящий приз), TrainStatusText, RouteButton
+│   │             AdPrompt (окно «посмотри рекламу?»), FlyingPrize (летящий приз), TripView (вид поездки сбоку),
+│   │             TrainStatusText, RouteButton
 │   └── Editor/   MapDataImporter (карта из текста), ParisPrototypeBuilder (сцена)
 ├── Data/
 │   ├── MapSource/*.txt   ← карта мира: по файлу на континент + _World.txt. Правится руками
@@ -123,6 +124,10 @@ Assets/
   часам устройства; «посмотри рекламу — получи 15 $» до 3 раз в день. У ~20% станций в текущем списке вагонов
   есть бонус: подарок (монеты или 1 $) или предложение рекламы. Раз в 5 минут игры по экрану пролетает «Приз!»
   (висит 20 с): монеты, доллар или предложение рекламы. Все числа — GameDatabase → Ads.
+- **Вид сбоку (Этап 12):** выбери поезд в пути и нажми «Вид сбоку» — внизу окно: паровоз с дымом из трубы,
+  прицепленные вагоны (цвет по типу), бегущие холмы, деревья/кактусы/камни/пальмы. Локация зависит от города, куда
+  едет поезд: Россия и север — зима со снегом, Европа и Северная Америка — лес, Африка — пустыня, Азия — степь и горы,
+  Южная Америка и Океания — тропики (GameDatabase → Trip side view). Всё — простые фигуры, позже заменим артом.
 - **Сохранение:** останови Play, пока поезд едет, подожди и снова нажми Play. Поезд будет там,
   куда успел доехать за это время.
 - Цены и доход — черновик, меняются в `Assets/Data/GameDatabase` (раздел Economy).

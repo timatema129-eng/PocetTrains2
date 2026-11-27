@@ -303,6 +303,8 @@ namespace TrainManager.EditorTools
             CreateShopWindow(canvasT, root);
             CreateQuestWindow(canvasT, root, navigator, window);
 
+            CreateTripView(canvasT, root, selection);
+
             // Реклама: окно-вопрос и летящий приз (последними — поверх всего)
             AdPrompt prompt = CreateAdPrompt(canvasT);
             window.prompt = prompt;
@@ -730,6 +732,42 @@ namespace TrainManager.EditorTools
             window.listContainer = (RectTransform)go.transform;
             window.rowTemplate = row;
             // Окно остаётся активным в сцене: QuestWindow сам скроет его в Awake и повесит кнопку
+        }
+
+        private static void CreateTripView(Transform canvasT, GameRoot root, TrainSelection selection)
+        {
+            Button open = CreateSmallButton("TripViewButton", canvasT, "Вид сбоку", 24);
+            Place((RectTransform)open.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(880f, -220f), new Vector2(200f, 56f));
+
+            Image bg = CreateImage("TripView", canvasT, new Color(0.05f, 0.07f, 0.1f, 0.96f));
+            Place(bg.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f),
+                Vector2.zero, new Vector2(0f, 480f));
+
+            TMP_Text caption = CreateText("Caption", bg.transform, "", 24, TextAlignmentOptions.MidlineLeft);
+            Place(caption.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f),
+                new Vector2(20f, -8f), new Vector2(-120f, 48f));
+
+            Button close = CreateSmallButton("Close", bg.transform, "×", 30);
+            Place((RectTransform)close.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-10f, -6f), new Vector2(60f, 50f));
+
+            Image stageImage = CreateImage("Stage", bg.transform, new Color(0f, 0f, 0f, 1f));
+            RectTransform stage = stageImage.rectTransform;
+            stage.anchorMin = new Vector2(0f, 0f);
+            stage.anchorMax = new Vector2(1f, 1f);
+            stage.offsetMin = new Vector2(10f, 10f);
+            stage.offsetMax = new Vector2(-10f, -62f);
+            stageImage.gameObject.AddComponent<RectMask2D>();
+
+            TripView view = bg.gameObject.AddComponent<TripView>();
+            view.root = root;
+            view.selection = selection;
+            view.openButton = open;
+            view.closeButton = close;
+            view.stage = stage;
+            view.caption = caption;
+            // Окно активно в сцене: TripView построит картинку и скроется в Awake
         }
 
         private static AdPrompt CreateAdPrompt(Transform canvasT)
