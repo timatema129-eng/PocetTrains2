@@ -50,6 +50,7 @@ namespace TrainManager.Core
 
             events.TrainReachedStop += OnTrainReachedStop;
             events.RegionUnlocked += OnRegionUnlocked;
+            events.LineBought += line => nearestCache.Clear(); // новая дорога — новые города, куда можно везти
         }
 
         // ================= Где какие вагоны =================
@@ -228,14 +229,31 @@ namespace TrainManager.Core
         /// <summary>Открыт новый регион — ближайшие доступные города надо пересчитать.</summary>
         private void OnRegionUnlocked(RegionData region) => nearestCache.Clear();
 
-        /// <summary>Ближайшие города (wagonOfferPool штук), посчитано один раз на город.</summary>
+        /// <summary>
+        /// Города, куда вагон реально можно довезти: до них есть путь по КУПЛЕННЫМ дорогам.
+        /// Из них берутся ближайшие (wagonOfferPool штук). Пересчитывается после покупки дороги.
+        /// </summary>
         private List<CityData> GetNearestCities(CityData city)
         {
             if (nearestCache.TryGetValue(city, out List<CityData> cached)) return cached;
 
+            // Обход сети купленных дорог от города
             var pool = new List<CityData>();
-            foreach (CityData c in db.cities)
-                if (c != null && c != city && network.IsCityAccessible(c)) pool.Add(c);
+            var visited = new HashSet<CityData> { city };
+            var queue = new Queue<CityData>();
+            queue.Enqueue(city);
+            while (queue.Count > 0)
+            {
+                CityData current = queue.Dequeue();
+                foreach (RailwayLineData line in db.GetLines(current))
+                {
+                    if (!network.IsLineOwned(line)) continue;
+                    CityData next = line.cityA == current ? line.cityB : line.cityA;
+                    if (next == null || !visited.Add(next)) continue;
+                    queue.Enqueue(next);
+                    if (network.IsCityAccessible(next)) pool.Add(next);
+                }
+            }
             pool.Sort((a, b) => Geo.DistanceKm(city, a).CompareTo(Geo.DistanceKm(city, b)));
             if (pool.Count > db.wagonOfferPool) pool.RemoveRange(db.wagonOfferPool, pool.Count - db.wagonOfferPool);
 

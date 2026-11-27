@@ -35,8 +35,8 @@ namespace TrainManager.EditorTools
         /// Номер версии сборщика сцены. Увеличивать, когда меняется вид сцены: перед Play редактор сравнит его
         /// с номером в сцене и сам пересоберёт её (SceneVersionCheck). Текст LayoutVersion виден в игре сверху.
         /// </summary>
-        public const int LayoutBuild = 4;
-        public const string LayoutVersion = "UI 4 (27.11)";
+        public const int LayoutBuild = 5;
+        public const string LayoutVersion = "UI 5 (27.11)";
 
         [MenuItem("Tools/Train Manager/Build Paris Prototype Scene")]
         public static void Build() => Build(true);
@@ -370,7 +370,8 @@ namespace TrainManager.EditorTools
             window.metroWindow = CreateMetroWindow(canvasT, root);
             CreateBottomBar(canvasT, new[]
             {
-                ("Поезда", trainList), ("Боксы", boxes), ("Магазин", shop), ("Задания", quests), ("Вид сбоку", trip),
+                ("Поезда", "btn_trains", trainList), ("Боксы", "btn_boxes", boxes), ("Магазин", "btn_shop", shop),
+                ("Задания", "btn_quests", quests), ("Вид сбоку", "btn_map", trip),
             });
 
             // Реклама: окно-вопрос и летящий приз (последними — поверх всего)
@@ -875,7 +876,9 @@ namespace TrainManager.EditorTools
         }
 
         /// <summary>Нижняя панель: большие кнопки, каждая открывает/закрывает своё окно.</summary>
-        private static void CreateBottomBar(Transform canvasT, (string label, GameObject panel)[] items)
+        private const string ButtonIcons = "Assets/Art/UI/Buttons/";
+
+        private static void CreateBottomBar(Transform canvasT, (string label, string icon, GameObject panel)[] items)
         {
             Image bar = CreateImage("BottomBar", canvasT, PanelColor);
             Place(bar.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(0f, BottomBarHeight));
@@ -887,10 +890,22 @@ namespace TrainManager.EditorTools
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = true;
 
-            foreach ((string label, GameObject panel) in items)
+            foreach ((string label, string icon, GameObject panel) in items)
             {
                 Button b = CreateSmallButton("Nav_" + label, bar.transform, label, 30);
                 b.gameObject.AddComponent<PanelToggle>().target = panel;
+
+                // Значок слева на кнопке (картинки Артема), текст — правее значка
+                Sprite sprite = LoadSprite(ButtonIcons + icon + ".png", 256);
+                if (sprite == null) continue;
+                Image img = CreateImage("Icon", b.transform, Color.white);
+                img.sprite = sprite;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+                Place(img.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(14f, 0f), new Vector2(80f, 80f));
+                RectTransform text = (RectTransform)b.transform.Find("Text");
+                if (text != null) text.offsetMin = new Vector2(100f, text.offsetMin.y);
             }
         }
 
