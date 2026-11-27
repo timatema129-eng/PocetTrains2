@@ -33,7 +33,7 @@ namespace TrainManager.Map
             foreach (LineView view in lines)
             {
                 root.Network.TryGetCustomColor(view.line, out Color color);
-                view.Apply(root.Network.IsLineOwned(view.line), color);
+                view.Apply(root.Network.IsLineOwned(view.line), color, root.Network.IsElectrified(view.line));
             }
 
             if (planner != null && planner.IsPlanning) return;

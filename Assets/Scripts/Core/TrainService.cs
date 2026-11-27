@@ -154,7 +154,7 @@ namespace TrainManager.Core
                 }
             }
 
-            float need = fuel.GetTripFuel(train, GetTripDistance(stops));
+            float need = GetTripFuel(train, stops);
             if (!fuel.HasFuelFor(train, need))
             {
                 reason = $"не хватает топлива: нужно {need:0.#}, есть {train.fuel:0.#}";
@@ -263,7 +263,7 @@ namespace TrainManager.Core
             }
 
             TrainData model = GetModel(train);
-            float tripFuel = fuel.GetTripFuel(train, GetTripDistance(stops));
+            float tripFuel = GetTripFuel(train, stops);
             fuel.Consume(train, tripFuel);
 
             long now = clock.NowUnixMs;
@@ -322,6 +322,23 @@ namespace TrainManager.Core
             }
             return sum;
         }
+
+        /// <summary>Сколько км маршрута по электрифицированным линиям.</summary>
+        public float GetElectrifiedDistance(IReadOnlyList<CityData> stops)
+        {
+            if (stops == null || stops.Count < 2) return 0f;
+            float sum = 0f;
+            for (int i = 1; i < stops.Count; i++)
+            {
+                RailwayLineData line = db.FindLine(stops[i - 1], stops[i]);
+                if (line != null && network.IsElectrified(line)) sum += line.distance;
+            }
+            return sum;
+        }
+
+        /// <summary>Топливо на поездку с учётом электричества (для электропоездов).</summary>
+        public float GetTripFuel(TrainInstance train, IReadOnlyList<CityData> stops) =>
+            fuel.GetTripFuel(train, GetTripDistance(stops), GetElectrifiedDistance(stops));
 
         /// <summary>Сколько секунд займёт поездка этого поезда по цепочке. -1, если нельзя посчитать.</summary>
         public float GetTripSeconds(TrainInstance train, IReadOnlyList<CityData> stops)

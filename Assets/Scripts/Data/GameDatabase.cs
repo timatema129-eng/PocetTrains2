@@ -69,6 +69,9 @@ namespace TrainManager.Data
         [Min(0f)] public float trackPriceStep = 200f;
         [Tooltip("Максимум путей на одной линии")]
         [Min(1)] public int maxTracksPerLine = 5;
+        [Tooltip("Электрификация линии (дорого) = база + за км × дистанция, монет")]
+        [Min(0f)] public float electrifyPriceBase = 1000f;
+        [Min(0f)] public float electrifyPricePerKm = 3f;
 
         [Header("Stations")]
         [Tooltip("Мест для вагонов на складе станции в начале")]

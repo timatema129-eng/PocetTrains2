@@ -157,7 +157,7 @@ namespace TrainManager.UI
             sb.Append('|').Append(root.Ads.GetStationBonus(City));
             sb.Append('|').Append(root.State.unlockedRegionIds.Count).Append('|').Append(root.State.ownedLineIds.Count);
             foreach (LineState ls in root.State.lineStates) // пути и цвета линий
-                sb.Append('|').Append(ls.lineId).Append(':').Append(ls.extraTracks).Append(':').Append(ls.colorIndex);
+                sb.Append('|').Append(ls.lineId).Append(':').Append(ls.extraTracks).Append(':').Append(ls.colorIndex).Append(':').Append(ls.electrified);
             return sb.ToString();
         }
 
@@ -258,6 +258,13 @@ namespace TrainManager.UI
                         () => root.Network.TryAddTrack(captured));
                     lineRow.line = line;
                     lineRow.SetSecond("Цвет", () => root.Network.CycleLineColor(captured));
+                    if (!root.Network.IsElectrified(line))
+                    {
+                        ListRow el = AddRow("      Провести электричество (электропоезда не тратят топливо)",
+                            $"Ток {root.Network.GetElectrifyPrice(line)}", () => root.Network.TryElectrify(captured));
+                        el.line = line;
+                        el.action = "electrify";
+                    }
                 }
                 else if (!root.Network.CanBuyLine(line, out string why) && why.StartsWith("нужен регион"))
                 {
@@ -343,6 +350,11 @@ namespace TrainManager.UI
                 if (row == null || row.button == null || !row.button.gameObject.activeSelf || row.buttonLabel == null) continue;
 
                 string b = row.buttonLabel.text;
+                if (row.action == "electrify")
+                {
+                    row.button.interactable = root.Network.CanElectrify(row.line, out _);
+                    continue;
+                }
                 if (row.action == "maintain")
                 {
                     row.button.interactable = root.Maintenance.CanMaintain(train, out _);
@@ -384,7 +396,7 @@ namespace TrainManager.UI
             int tracks = root.Network.GetTrackCount(line);
             int busy = root.Trains.GetBusyTracks(line);
             return $"  — {other.displayName} · {line.distance:0} км · <color=#{ColorUtility.ToHtmlStringRGB(color)}>■</color> " +
-                   $"путей {tracks} (занято {busy})";
+                   $"путей {tracks} (занято {busy}){(root.Network.IsElectrified(line) ? " · <color=#ffe14a>под током</color>" : "")}";
         }
 
         private string TrackButtonText(RailwayLineData line) =>

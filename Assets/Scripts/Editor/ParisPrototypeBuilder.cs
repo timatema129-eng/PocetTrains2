@@ -80,6 +80,7 @@ namespace TrainManager.EditorTools
                 t.mainEngines = 1; t.maxExtraEngines = 1; t.wagonsPerExtraEngine = 4;
                 t.maxFuelWagons = 4; t.fuelPerFuelWagon = 100;
                 t.serviceCostMultiplier = 4f;
+                t.isElectric = true; // маглев — электропоезд (Артем может поменять в ассете)
             });
             AddUnique(database.trains, epic);
 

@@ -157,6 +157,55 @@ namespace TrainManager.Core
             return true;
         }
 
+        // ================= Электрификация =================
+
+        public bool IsElectrified(RailwayLineData line)
+        {
+            LineState ls = line != null ? state.FindLineState(line.lineId) : null;
+            return ls != null && ls.electrified;
+        }
+
+        public long GetElectrifyPrice(RailwayLineData line) =>
+            line != null ? (long)Mathf.Round(db.electrifyPriceBase + db.electrifyPricePerKm * line.distance) : 0;
+
+        public bool CanElectrify(RailwayLineData line, out string reason)
+        {
+            if (!IsLineOwned(line))
+            {
+                reason = "линия не куплена";
+                return false;
+            }
+            if (IsElectrified(line))
+            {
+                reason = "уже электрифицирована";
+                return false;
+            }
+            long price = GetElectrifyPrice(line);
+            if (!wallet.CanAfford(Currency.Coins, price))
+            {
+                reason = $"не хватает монет ({price})";
+                return false;
+            }
+            reason = null;
+            return true;
+        }
+
+        /// <summary>Провести электричество на участке (линия от города к городу).</summary>
+        public bool TryElectrify(RailwayLineData line)
+        {
+            if (!CanElectrify(line, out string reason))
+            {
+                Debug.LogWarning($"[Network] Электрификация нельзя: {reason}");
+                return false;
+            }
+            if (!wallet.TrySpend(Currency.Coins, GetElectrifyPrice(line), $"электрификация {line.cityA.displayName} — {line.cityB.displayName}"))
+                return false;
+            state.GetOrCreateLineState(line.lineId).electrified = true;
+            Debug.Log($"[Network] Линия {line.cityA.displayName} — {line.cityB.displayName} электрифицирована");
+            events.RaiseLineChanged(line);
+            return true;
+        }
+
         // ================= Цвет линии (выбор игрока) =================
 
         /// <summary>Цвет, выбранный игроком; false — у линии цвет по умолчанию.</summary>

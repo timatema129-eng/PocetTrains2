@@ -162,12 +162,20 @@ namespace TrainManager.UI
 
             float distance = root.Trains.GetTripDistance(plan);
             float seconds = root.Trains.GetTripSeconds(train, plan);
-            float need = root.Fuel.GetTripFuel(train, distance);
+            float need = root.Trains.GetTripFuel(train, plan);
             string fuelText = root.Fuel.HasFuelFor(train, need)
                 ? $"топливо {need:0.#} из {train.fuel:0.#}"
                 : $"<color=#ff6060>топлива не хватит: нужно {need:0.#}, есть {train.fuel:0.#}</color>";
+            float electric = root.Trains.GetElectrifiedDistance(plan);
+            TrainData model = root.Trains.GetModel(train);
+            string electricText = electric > 0f
+                ? (model != null && model.isElectric
+                    ? $"\nПод током {electric:0} км — электропоезд там топливо не тратит"
+                    : $"\nПод током {electric:0} км — обычному поезду это ничего не даёт")
+                : "";
             return $"{who}: {root.Trains.DescribeStops(ids)}\n" +
-                   $"Дистанция {distance:0} км, в пути ~{seconds:0.0} с, {fuelText} (толчок {root.Fuel.GetPushFuel(train):0.#})";
+                   $"Дистанция {distance:0} км, в пути ~{seconds:0.0} с, {fuelText} (толчок {root.Fuel.GetPushFuel(train):0.#})" +
+                   electricText;
         }
     }
 }

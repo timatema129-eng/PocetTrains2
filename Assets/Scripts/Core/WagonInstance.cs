@@ -51,6 +51,9 @@ namespace TrainManager.Core
 
         /// <summary>Цвет из LinePalette, выбранный игроком. -1 — цвет по умолчанию (из карты).</summary>
         public int colorIndex = -1;
+
+        /// <summary>Проведено электричество (участок от города к городу).</summary>
+        public bool electrified;
     }
 
     /// <summary>Состояние станции игрока: докупленные места и уже купленные вагоны из текущего списка.</summary>

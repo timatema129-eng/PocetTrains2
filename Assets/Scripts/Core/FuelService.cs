@@ -60,6 +60,20 @@ namespace TrainManager.Core
             return GetPushFuel(train) + distanceKm * db.fuelPerKm;
         }
 
+        /// <summary>
+        /// То же с учётом электричества: электропоезд не тратит топливо на электрифицированных километрах,
+        /// а если электрифицирован весь маршрут — не тратит и толчок. Обычному поезду электричество ничего не даёт.
+        /// </summary>
+        public float GetTripFuel(TrainInstance train, float distanceKm, float electrifiedKm)
+        {
+            if (distanceKm < 0f) return -1f;
+            TrainData model = train != null ? db.GetTrain(train.modelId) : null;
+            if (model == null || !model.isElectric || electrifiedKm <= 0f) return GetTripFuel(train, distanceKm);
+            float dieselKm = Mathf.Max(0f, distanceKm - electrifiedKm);
+            if (dieselKm <= 0.001f) return 0f;
+            return GetPushFuel(train) + dieselKm * db.fuelPerKm;
+        }
+
         public bool HasFuelFor(TrainInstance train, float tripFuel) =>
             train != null && tripFuel >= 0f && train.fuel + 0.0001f >= tripFuel;
 

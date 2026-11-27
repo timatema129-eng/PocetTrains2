@@ -19,10 +19,13 @@ namespace TrainManager.Map
 
         private bool hasState;
         private bool lastOwned;
+        private bool lastElectrified;
+        private Vector3 baseScale;
         private Color lastPrimary;
 
         private void Awake()
         {
+            baseScale = transform.localScale;
             images = GetComponentsInChildren<Image>(true);
             baseColors = new Color[images.Length];
             isPrimary = new bool[images.Length];
@@ -36,13 +39,16 @@ namespace TrainManager.Map
         }
 
         /// <summary>Обновить вид. primary — основной цвет (по умолчанию или выбранный игроком).</summary>
-        public void Apply(bool owned, Color primary)
+        public void Apply(bool owned, Color primary, bool electrified = false)
         {
             if (images == null) return;
-            if (hasState && owned == lastOwned && SameColor(primary, lastPrimary)) return;
+            if (hasState && owned == lastOwned && electrified == lastElectrified && SameColor(primary, lastPrimary)) return;
             hasState = true;
             lastOwned = owned;
+            lastElectrified = electrified;
             lastPrimary = primary;
+            // Электрифицированная линия рисуется толще (линия повёрнута — толщина по локальной оси Y)
+            transform.localScale = electrified ? new Vector3(baseScale.x, baseScale.y * 1.8f, baseScale.z) : baseScale;
 
             for (int i = 0; i < images.Length; i++)
             {

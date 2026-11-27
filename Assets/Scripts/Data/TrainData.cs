@@ -44,6 +44,10 @@ namespace TrainManager.Data
         [Tooltip("На сколько один топливный вагон увеличивает запас топлива")]
         [Min(0)] public int fuelPerFuelWagon = 0;
 
+        [Header("Electric")]
+        [Tooltip("Электропоезд: на электрифицированных линиях не тратит топливо")]
+        public bool isElectric;
+
         [Header("Wear (черновик)")]
         [Tooltip("На сколько % падает состояние за 1 км пути")]
         [Min(0f)] public float wearPerKm = 0.02f;
