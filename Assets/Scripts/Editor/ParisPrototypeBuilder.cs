@@ -289,6 +289,7 @@ namespace TrainManager.EditorTools
             // Список поездов: кнопка «Поезда» под статусом и окно со списком
             CreateTrainList(canvasT, root, selection, navigator, window);
             CreateBoxWindow(canvasT, root);
+            CreateShopWindow(canvasT, root);
 
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
@@ -639,6 +640,38 @@ namespace TrainManager.EditorTools
             window.listContainer = (RectTransform)go.transform;
             window.rowTemplate = row;
             // Окно остаётся активным в сцене: BoxWindow сам скроет его в Awake и повесит кнопку
+        }
+
+        private static void CreateShopWindow(Transform canvasT, GameRoot root)
+        {
+            Button toggle = CreateSmallButton("ShopButton", canvasT, "Магазин", 24);
+            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(460f, -220f), new Vector2(200f, 56f));
+
+            var go = new GameObject("ShopWindow", typeof(RectTransform));
+            go.transform.SetParent(canvasT, false);
+            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(40f, -286f), new Vector2(680f, 0f));
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
+            var layout = go.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 10, 10);
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = go.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            ListRow row = CreateListRowTemplate(go.transform);
+
+            ShopWindow window = go.AddComponent<ShopWindow>();
+            window.root = root;
+            window.toggleButton = toggle;
+            window.listContainer = (RectTransform)go.transform;
+            window.rowTemplate = row;
+            // Окно остаётся активным в сцене: ShopWindow сам скроет его в Awake и повесит кнопку
         }
 
         /// <summary>Шаблон строки списка: текст + кнопка справа + скрытая вторая кнопка (выключен).</summary>

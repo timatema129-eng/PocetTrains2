@@ -374,7 +374,8 @@ namespace TrainManager.Core
                 wagonTypeId = offer.type.wagonTypeId,
                 destinationCityId = offer.destination.cityId,
                 originCityId = offer.origin.cityId,
-                incomeCoins = offer.income
+                incomeCoins = offer.income,
+                paidCoins = offer.price
             };
             state.wagons.Add(wagon);
             MarkBought(offer.origin.cityId, offer.slot);
@@ -485,7 +486,8 @@ namespace TrainManager.Core
                 instanceId = state.NewInstanceId("wagon"),
                 wagonTypeId = type.wagonTypeId,
                 destinationCityId = "", // служебный вагон никуда не выгружается
-                originCityId = train.currentCityId
+                originCityId = train.currentCityId,
+                paidCoins = type.fixedPriceCoins
             };
             state.wagons.Add(wagon);
             PutOnTrain(wagon, train);
@@ -494,6 +496,40 @@ namespace TrainManager.Core
             Debug.Log($"[Wagon] Куплен и прицеплен «{type.displayName}» ({wagon.instanceId})");
             events.RaiseWagonBought(wagon);
             return wagon;
+        }
+
+        // ================= Продажа =================
+
+        /// <summary>За сколько монет можно продать вагон (доля от цены покупки).</summary>
+        public long GetSellPrice(WagonInstance wagon)
+        {
+            if (wagon == null) return 0;
+            long paid = wagon.paidCoins;
+            if (paid <= 0)
+            {
+                // Старое сохранение: цену покупки не знаем — считаем, как считали бы сейчас
+                WagonData type = GetWagonType(wagon);
+                if (type != null && type.kind != WagonKind.Cargo) paid = type.fixedPriceCoins;
+                else paid = GetPrice(type, db.GetCity(wagon.originCityId), db.GetCity(wagon.destinationCityId));
+            }
+            return (long)Mathf.Floor(paid * db.wagonSellShare);
+        }
+
+        /// <summary>Продать вагон со склада станции (вагон удаляется).</summary>
+        public bool TrySell(WagonInstance wagon)
+        {
+            if (wagon == null || wagon.location != WagonLocation.Station || state.FindWagon(wagon.instanceId) == null)
+            {
+                Debug.LogWarning("[Wagon] Продать можно только вагон со склада станции");
+                return false;
+            }
+            long price = GetSellPrice(wagon);
+            string cityId = wagon.locationId;
+            state.wagons.Remove(wagon);
+            wallet.Add(Currency.Coins, price, $"продажа вагона {wagon.instanceId}");
+            Debug.Log($"[Wagon] Продан вагон {wagon.instanceId} за {price}");
+            events.RaiseStationChanged(db.GetCity(cityId));
+            return true;
         }
 
         /// <summary>Прицепить вагон со склада станции к поезду, который стоит в этом городе.</summary>

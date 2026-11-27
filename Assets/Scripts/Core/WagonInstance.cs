@@ -31,6 +31,9 @@ namespace TrainManager.Core
         /// <summary>Доход за доставку, посчитан при покупке — чтобы игрок видел честную цифру заранее.</summary>
         public long incomeCoins;
 
+        /// <summary>Сколько монет заплачено при покупке (для цены продажи). 0 — старое сохранение.</summary>
+        public long paidCoins;
+
         public WagonLocation location;
 
         /// <summary>cityId (склад станции) или instanceId поезда — смотря по location.</summary>

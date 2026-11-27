@@ -225,8 +225,10 @@ namespace TrainManager.UI
             foreach (WagonInstance w in stored)
             {
                 WagonInstance captured = w;
-                AddRow($"  {DescribeWagon(w)}", train != null ? "Прицепить" : null,
-                    () => root.Wagons.TryAttach(TrainHere(), captured)).wagon = w;
+                ListRow storedRow = AddRow($"  {DescribeWagon(w)}", train != null ? "Прицепить" : null,
+                    () => root.Wagons.TryAttach(TrainHere(), captured));
+                storedRow.wagon = w;
+                storedRow.SetSecond($"Продать {root.Wagons.GetSellPrice(w)}", () => root.Wagons.TrySell(captured));
             }
 
             // ---- Дороги из города ----

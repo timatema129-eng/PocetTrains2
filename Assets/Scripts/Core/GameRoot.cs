@@ -26,6 +26,7 @@ namespace TrainManager.Core
         public NetworkService Network { get; private set; }
         public PartsService Parts { get; private set; }
         public MaintenanceService Maintenance { get; private set; }
+        public ExchangeService Exchange { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -58,6 +59,7 @@ namespace TrainManager.Core
             Trains = new TrainService(State, database, clock, Events, Fuel, Network, Maintenance);
             Wagons = new WagonService(State, database, Wallet, Events, clock, Fuel, Network); // подписывается на прибытие: выгрузка
             Parts = new PartsService(State, database, Wallet, Trains, Events);
+            Exchange = new ExchangeService(database, clock, Wallet);
 
             if (isNewGame)
                 StartNewGame();
@@ -75,6 +77,7 @@ namespace TrainManager.Core
             Events.LineChanged += line => Save();
             Events.PartsChanged += () => Save();
             Events.TrainConditionChanged += train => Save();
+            Events.WalletChanged += (currency, balance, delta, reason) => Save(); // обмен, покупки, доход
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.

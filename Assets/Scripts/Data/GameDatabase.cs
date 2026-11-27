@@ -112,6 +112,18 @@ namespace TrainManager.Data
         [Tooltip("Буксировка поезда, вставшего на линии, до города, откуда он ехал")]
         [Min(0)] public int towCoins = 100;
 
+        [Header("Exchange and selling (черновик баланса)")]
+        [Tooltip("Курс: монет за 1 $. Минимум (начало и конец цикла)")]
+        [Min(1)] public int exchangeMinRate = 120;
+        [Tooltip("Курс: максимум возможного пика цикла")]
+        [Min(1)] public int exchangeMaxRate = 400;
+        [Tooltip("Длина цикла курса, реальных дней")]
+        [Min(1)] public int exchangeCycleDays = 3;
+        [Tooltip("Курс меняется раз в столько минут")]
+        [Min(1)] public int exchangeStepMinutes = 60;
+        [Tooltip("Продажа вагона: доля от цены покупки")]
+        [Range(0f, 1f)] public float wagonSellShare = 0.5f;
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]
