@@ -9,13 +9,14 @@ Unity **6000.3.12f1 (6.3 LTS)**, URP 2D, C#, Unity UI + TextMeshPro, новый 
 Assets/
 ├── Scripts/
 │   ├── Data/     Конфиги (ScriptableObject): RegionData, CityData, RailwayLineData, RouteData,
-│   │             TrainData и GameDatabase — каталог всех конфигов с поиском по ID
+│   │             TrainData, WagonData и GameDatabase — каталог конфигов + стартовые деньги и черновые цены
 │   ├── Core/     Фундамент: GameRoot (точка входа), GameState (прогресс игрока),
 │   │             TrainInstance (поезд игрока), TrainService (правила движения),
+│   │             WalletService (монеты и доллары), WagonService (вагоны, склад, выгрузка),
 │   │             SaveService (сохранение), GameClock (реальное время), GameEvents (события)
 │   ├── Trains/   TrainState, TrainView (картинка поезда)
 │   ├── Map/      MapView, StationView, MapNavigator (перетаскивание и масштаб)
-│   ├── UI/       RoutePlanner (маршрут нажатием на города), TrainStatusText, RouteButton
+│   ├── UI/       RoutePlanner (маршрут нажатием на города), WagonPanel, WalletText, TrainStatusText, RouteButton
 │   └── Editor/   MapDataImporter (карта из текста), ParisPrototypeBuilder (сцена)
 ├── Data/
 │   ├── MapSource/*.txt   ← карта мира: по файлу на континент + _World.txt. Правится руками
@@ -62,6 +63,12 @@ Assets/
   в Console пишется «проехал остановку …».
 - **Сохранение:** останови Play, пока поезд едет, подожди и снова нажми Play. Поезд будет там,
   куда успел доехать за это время.
+- **Вагоны (Этап 3):** справа панель. В новой игре 500 монет. Купи вагон, например «→ Берлин» и «→ Амстердам»:
+  монеты списываются, вагоны прицепляются к поезду (если состав полон — ложатся на склад станции).
+- Отправь поезд по цепочке, которая проходит через Берлин и Амстердам (например Париж → Брюссель → Кёльн → Франкфурт → Берлин
+  или Париж → Брюссель → Амстердам). На каждой остановке выгружаются **только** вагоны в этот город,
+  в Console: «[Wagon] … выгружен в …» и «[Wallet] +… монет». Остальные вагоны едут дальше.
+- Цены и доход — черновик, меняются в `Assets/Data/GameDatabase` (раздел Economy).
 - Начать заново: **Tools → Train Manager → Delete Save**.
 - В Console пишутся сообщения с префиксами `[Train]`, `[Game]`, `[Save]`, `[Map Import]`.
 

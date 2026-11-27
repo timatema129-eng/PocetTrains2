@@ -18,12 +18,32 @@ namespace TrainManager.Data
         public List<RailwayLineData> lines = new List<RailwayLineData>();
         public List<RouteData> routes = new List<RouteData>();
         public List<TrainData> trains = new List<TrainData>();
+        public List<WagonData> wagons = new List<WagonData>();
 
         [Header("New game")]
         [Tooltip("Где стоит первый поезд в новой игре")]
         public CityData startCity;
         [Tooltip("Какой поезд есть у игрока в новой игре")]
         public TrainData startTrain;
+
+        [Tooltip("Монеты в новой игре")]
+        public long startCoins = 500;
+        [Tooltip("Доллары в новой игре")]
+        public long startDollars = 0;
+
+        [Header("Economy (черновик баланса, числа меняются здесь)")]
+        [Tooltip("Цена вагона = база + за км × расстояние до города назначения (по прямой)")]
+        [Min(0f)] public float wagonBasePrice = 20f;
+        [Min(0f)] public float wagonPricePerKm = 0.1f;
+        [Tooltip("Доход за доставку = база + за км × расстояние от города покупки до города назначения")]
+        [Min(0f)] public float deliveryBaseIncome = 40f;
+        [Min(0f)] public float deliveryIncomePerKm = 0.3f;
+        [Tooltip("Сколько городов назначения предлагать при покупке вагона (ближайшие)")]
+        [Min(1)] public int wagonOfferCount = 6;
+
+        [Header("Stations")]
+        [Tooltip("Мест для вагонов на складе станции в начале")]
+        [Min(0)] public int stationBaseSlots = 5;
 
         [Header("Time")]
         [Min(0.01f)]
@@ -33,6 +53,7 @@ namespace TrainManager.Data
         private Dictionary<string, CityData> cityById;
         private Dictionary<string, RouteData> routeById;
         private Dictionary<string, TrainData> trainById;
+        private Dictionary<string, WagonData> wagonById;
         private Dictionary<CityData, List<RailwayLineData>> linesByCity;
 
         private void OnEnable() => ClearCache();
@@ -43,6 +64,7 @@ namespace TrainManager.Data
             cityById = null;
             routeById = null;
             trainById = null;
+            wagonById = null;
             linesByCity = null;
         }
 
@@ -62,6 +84,23 @@ namespace TrainManager.Data
         {
             if (trainById == null) trainById = BuildIndex(trains, t => t.trainId, "Train");
             return Find(trainById, trainId);
+        }
+
+        public WagonData GetWagonType(string wagonTypeId)
+        {
+            if (wagonById == null) wagonById = BuildIndex(wagons, w => w.wagonTypeId, "Wagon");
+            return Find(wagonById, wagonTypeId);
+        }
+
+        /// <summary>Первый грузовой тип вагона — его покупает игрок, пока типов один.</summary>
+        public WagonData DefaultCargoWagon
+        {
+            get
+            {
+                foreach (WagonData w in wagons)
+                    if (w != null && w.kind == WagonKind.Cargo) return w;
+                return null;
+            }
         }
 
         /// <summary>Линия между двумя городами (направление не важно). null — линии нет.</summary>

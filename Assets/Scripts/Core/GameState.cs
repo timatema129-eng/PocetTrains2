@@ -29,6 +29,10 @@ namespace TrainManager.Core
 
         public Wallet wallet = new Wallet();
 
+        public List<WagonInstance> wagons = new List<WagonInstance>();
+
+        public List<StationState> stations = new List<StationState>();
+
         // ---- Задел на следующие этапы (пока не используется) ----
 
         /// <summary>Открытые регионы (regionId).</summary>
@@ -44,6 +48,28 @@ namespace TrainManager.Core
             return id;
         }
 
+        public WagonInstance FindWagon(string instanceId)
+        {
+            foreach (WagonInstance w in wagons)
+            {
+                if (w != null && w.instanceId == instanceId)
+                    return w;
+            }
+            return null;
+        }
+
+        public StationState GetOrCreateStation(string cityId)
+        {
+            foreach (StationState st in stations)
+            {
+                if (st != null && st.cityId == cityId)
+                    return st;
+            }
+            var created = new StationState { cityId = cityId };
+            stations.Add(created);
+            return created;
+        }
+
         public TrainInstance FindTrain(string instanceId)
         {
             foreach (TrainInstance t in trains)
@@ -56,7 +82,7 @@ namespace TrainManager.Core
     }
 
     /// <summary>
-    /// Кошелёк игрока. Пока только структура — операции появятся на этапе экономики.
+    /// Кошелёк игрока. Только данные — менять баланс через WalletService (там проверки и события).
     /// Обмен только доллары → монеты (kb/03).
     /// </summary>
     [Serializable]

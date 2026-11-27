@@ -19,6 +19,28 @@ namespace TrainManager.Core
         /// </summary>
         public event Action<TrainInstance, CityData, bool> TrainReachedStop;
 
+        /// <summary>Баланс изменился: валюта, новый баланс, изменение (+/-), причина.</summary>
+        public event Action<Currency, long, long, string> WalletChanged;
+
+        /// <summary>Вагон куплен (уже в поезде или на складе станции).</summary>
+        public event Action<WagonInstance> WagonBought;
+
+        /// <summary>Вагон доставлен в город назначения: вагон, город, полученные монеты.</summary>
+        public event Action<WagonInstance, CityData, long> WagonDelivered;
+
+        /// <summary>Вагон перемещён между поездом и складом станции.</summary>
+        public event Action<WagonInstance> WagonMoved;
+
+        public void RaiseWalletChanged(Currency currency, long balance, long delta, string reason) =>
+            WalletChanged?.Invoke(currency, balance, delta, reason);
+
+        public void RaiseWagonBought(WagonInstance wagon) => WagonBought?.Invoke(wagon);
+
+        public void RaiseWagonDelivered(WagonInstance wagon, CityData city, long coins) =>
+            WagonDelivered?.Invoke(wagon, city, coins);
+
+        public void RaiseWagonMoved(WagonInstance wagon) => WagonMoved?.Invoke(wagon);
+
         public void RaiseTrainDeparted(TrainInstance train, TripState trip) =>
             TrainDeparted?.Invoke(train, trip);
 

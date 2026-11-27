@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using TrainManager.Data;
 using TrainManager.Trains;
@@ -19,6 +20,8 @@ namespace TrainManager.Core
         public GameState State { get; private set; }
         public GameEvents Events { get; private set; }
         public TrainService Trains { get; private set; }
+        public WalletService Wallet { get; private set; }
+        public WagonService Wagons { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -45,17 +48,23 @@ namespace TrainManager.Core
                 State = new GameState { createdUnixMs = clock.NowUnixMs };
 
             Trains = new TrainService(State, database, clock, Events);
+            Wallet = new WalletService(State, Events);
+            Wagons = new WagonService(State, database, Wallet, Events); // подписывается на прибытие: выгрузка
 
             if (isNewGame)
                 StartNewGame();
             else
                 Repair();
 
-            // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать.
-            Trains.Tick();
-
+            // Подписки на сохранение — ДО догоняющего Tick, чтобы офлайн-выгрузка тоже сохранилась.
             Events.TrainDeparted += (train, trip) => Save();
             Events.TrainReachedStop += (train, city, isFinal) => Save();
+            Events.WagonBought += wagon => Save();
+            Events.WagonMoved += wagon => Save();
+
+            // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
+            // и выгрузят вагоны на пройденных остановках.
+            Trains.Tick();
 
             Save();
         }
@@ -69,6 +78,8 @@ namespace TrainManager.Core
             }
 
             Trains.CreateTrain(database.startTrain, database.startCity);
+            Wallet.Add(Currency.Coins, database.startCoins, "старт игры");
+            Wallet.Add(Currency.Dollars, database.startDollars, "старт игры");
             Debug.Log("[Game] Новая игра");
         }
 
@@ -122,10 +133,49 @@ namespace TrainManager.Core
                 }
             }
 
+            RepairWagons();
+
             if (State.trains.Count == 0)
                 StartNewGame();
 
             Debug.Log($"[Game] Продолжение игры, поездов: {State.trains.Count}");
+        }
+
+        /// <summary>
+        /// Каждый вагон должен быть ровно в одном месте, а его города — существовать.
+        /// </summary>
+        private void RepairWagons()
+        {
+            if (State.wagons == null) State.wagons = new List<WagonInstance>();
+            if (State.stations == null) State.stations = new List<StationState>();
+
+            for (int i = State.wagons.Count - 1; i >= 0; i--)
+            {
+                WagonInstance w = State.wagons[i];
+                bool broken = w == null || database.GetCity(w.destinationCityId) == null;
+                if (!broken && w.location == WagonLocation.Station)
+                    broken = database.GetCity(w.locationId) == null;
+                if (!broken && w.location == WagonLocation.Train)
+                {
+                    TrainInstance t = State.FindTrain(w.locationId);
+                    broken = t == null || !t.wagonIds.Contains(w.instanceId);
+                }
+                if (broken)
+                {
+                    Debug.LogWarning($"[Game] Вагон {(w != null ? w.instanceId : "null")} повреждён в сохранении и удалён");
+                    State.wagons.RemoveAt(i);
+                }
+            }
+
+            foreach (TrainInstance t in State.trains)
+            {
+                if (t.wagonIds == null) t.wagonIds = new List<string>();
+                t.wagonIds.RemoveAll(id =>
+                {
+                    WagonInstance w = State.FindWagon(id);
+                    return w == null || w.location != WagonLocation.Train || w.locationId != t.instanceId;
+                });
+            }
         }
 
         private void Update()

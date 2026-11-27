@@ -49,7 +49,7 @@ namespace TrainManager.UI
             }
 
             text.text = $"Поезд «{root.Trains.GetDisplayName(train)}» ({train.instanceId})\n" +
-                        $"Состояние: {train.state}\n{line}";
+                        $"Состояние: {train.state}, вагонов {root.Wagons.GetTrainUsedSlots(train)}/{root.Wagons.GetTrainCapacity(train)}\n{line}";
         }
 
         private string CityName(string cityId)

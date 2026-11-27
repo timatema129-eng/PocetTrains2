@@ -59,6 +59,13 @@ namespace TrainManager.EditorTools
             });
             AddUnique(database.trains, standard);
 
+            EnsureFolder(DataRoot + "/Wagons");
+            WagonData cargo = LoadOrCreate<WagonData>(DataRoot + "/Wagons/Wagon_Cargo.asset", w =>
+            {
+                w.wagonTypeId = "cargo"; w.displayName = "Грузовой"; w.kind = WagonKind.Cargo;
+            });
+            AddUnique(database.wagons, cargo);
+
             CityData paris = database.GetCity("paris");
             if (paris == null)
             {
@@ -164,6 +171,22 @@ namespace TrainManager.EditorTools
             TrainStatusText statusText = status.gameObject.AddComponent<TrainStatusText>();
             statusText.root = root;
             statusText.text = status;
+
+            // Баланс (справа сверху)
+            TMP_Text walletLabel = CreateText("Wallet", canvasT, "", 30, TextAlignmentOptions.TopRight);
+            RectTransform walletRect = walletLabel.rectTransform;
+            walletRect.anchorMin = walletRect.anchorMax = new Vector2(1f, 1f);
+            walletRect.pivot = new Vector2(1f, 1f);
+            walletRect.anchoredPosition = new Vector2(-30f, -24f);
+            walletRect.sizeDelta = new Vector2(700f, 50f);
+            walletLabel.outlineWidth = 0.2f;
+            walletLabel.outlineColor = Color.black;
+            WalletText wallet = walletLabel.gameObject.AddComponent<WalletText>();
+            wallet.root = root;
+            wallet.text = walletLabel;
+
+            // Панель вагонов (справа): состав, склад станции, покупка
+            CreateWagonPanel(canvasT, root);
 
             // Составление маршрута: текст + кнопки «Отправить» и «Сбросить»
             var panelGo = new GameObject("RoutePlanner", typeof(RectTransform));
@@ -337,6 +360,48 @@ namespace TrainManager.EditorTools
             rect.sizeDelta = new Vector2(delta.magnitude, 4f);
             rect.anchoredPosition = (a + b) * 0.5f;
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+        }
+
+        private static void CreateWagonPanel(Transform canvasT, GameRoot root)
+        {
+            var panelGo = new GameObject("WagonPanel", typeof(RectTransform));
+            panelGo.transform.SetParent(canvasT, false);
+            var rect = (RectTransform)panelGo.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-20f, -84f);
+            rect.sizeDelta = new Vector2(540f, 800f);
+            Image bg = panelGo.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.6f);
+
+            var layout = panelGo.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(16, 16, 16, 16);
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            TMP_Text info = CreateText("Info", panelGo.transform, "", 22, TextAlignmentOptions.TopLeft);
+
+            // Шаблон кнопки предложения (выключен; панель копирует его для каждого города)
+            Image templateImage = CreateImage("OfferTemplate", panelGo.transform, new Color(0.95f, 0.95f, 0.95f));
+            Button template = templateImage.gameObject.AddComponent<Button>();
+            template.targetGraphic = templateImage;
+            var element = templateImage.gameObject.AddComponent<LayoutElement>();
+            element.preferredHeight = 68f;
+            TMP_Text label = CreateText("Text", templateImage.transform, "", 20, TextAlignmentOptions.Center);
+            label.color = new Color(0.1f, 0.1f, 0.1f);
+            Stretch(label.rectTransform);
+            templateImage.gameObject.SetActive(false);
+
+            WagonPanel panel = panelGo.AddComponent<WagonPanel>();
+            panel.root = root;
+            panel.infoText = info;
+            panel.offersContainer = rect;
+            panel.buttonTemplate = template;
+            panel.trainIndex = 0;
         }
 
         /// <summary>Кнопка справа внизу панели. x — сдвиг от правого края.</summary>
