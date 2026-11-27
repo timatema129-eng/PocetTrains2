@@ -33,6 +33,7 @@ namespace TrainManager.Data
         private Dictionary<string, CityData> cityById;
         private Dictionary<string, RouteData> routeById;
         private Dictionary<string, TrainData> trainById;
+        private Dictionary<CityData, List<RailwayLineData>> linesByCity;
 
         private void OnEnable() => ClearCache();
         private void OnValidate() => ClearCache();
@@ -42,6 +43,7 @@ namespace TrainManager.Data
             cityById = null;
             routeById = null;
             trainById = null;
+            linesByCity = null;
         }
 
         public CityData GetCity(string cityId)
@@ -65,12 +67,41 @@ namespace TrainManager.Data
         /// <summary>Линия между двумя городами (направление не важно). null — линии нет.</summary>
         public RailwayLineData FindLine(CityData a, CityData b)
         {
-            foreach (RailwayLineData line in lines)
+            if (a == null || b == null) return null;
+            foreach (RailwayLineData line in GetLines(a))
             {
-                if (line != null && line.Connects(a, b))
+                if (line.Connects(a, b))
                     return line;
             }
             return null;
+        }
+
+        private static readonly List<RailwayLineData> NoLines = new List<RailwayLineData>();
+
+        /// <summary>Все линии, которые выходят из города.</summary>
+        public IReadOnlyList<RailwayLineData> GetLines(CityData city)
+        {
+            if (linesByCity == null)
+            {
+                linesByCity = new Dictionary<CityData, List<RailwayLineData>>();
+                foreach (RailwayLineData line in lines)
+                {
+                    if (line == null || !line.IsValid) continue;
+                    AddLine(line.cityA, line);
+                    AddLine(line.cityB, line);
+                }
+            }
+            return city != null && linesByCity.TryGetValue(city, out List<RailwayLineData> list) ? list : NoLines;
+        }
+
+        private void AddLine(CityData city, RailwayLineData line)
+        {
+            if (!linesByCity.TryGetValue(city, out List<RailwayLineData> list))
+            {
+                list = new List<RailwayLineData>();
+                linesByCity.Add(city, list);
+            }
+            list.Add(line);
         }
 
         private static T Find<T>(Dictionary<string, T> index, string id) where T : class

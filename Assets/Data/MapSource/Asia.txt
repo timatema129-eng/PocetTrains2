@@ -1,0 +1,170 @@
+# Регион «Азия» — источник данных для Tools → Train Manager → Import Map Data.
+# Ключевые города страны, реальные координаты. Линии проведены по географическому правилу:
+# соседние города, правдоподобные сухопутные коридоры и несколько морских переправ.
+# Формат и общие настройки карты — в файле _World.txt.
+
+region; asia; Азия
+
+# ---------- Города ----------
+city; ankara; Анкара; 39.934; 32.860
+city; tbilisi; Тбилиси; 41.716; 44.783
+city; yerevan; Ереван; 40.179; 44.499
+city; baku; Баку; 40.409; 49.867
+city; tehran; Тегеран; 35.689; 51.389
+city; mashhad; Мешхед; 36.297; 59.606
+city; baghdad; Багдад; 33.315; 44.366
+city; damascus; Дамаск; 33.513; 36.292
+city; tel_aviv; Тель-Авив; 32.085; 34.782
+city; amman; Амман; 31.954; 35.910
+city; riyadh; Эр-Рияд; 24.713; 46.675
+city; jeddah; Джидда; 21.486; 39.193
+city; dubai; Дубай; 25.205; 55.271
+city; muscat; Маскат; 23.588; 58.383
+city; ashgabat; Ашхабад; 37.960; 58.326
+city; tashkent; Ташкент; 41.299; 69.240
+city; almaty; Алматы; 43.238; 76.946
+city; astana; Астана; 51.169; 71.449
+city; kabul; Кабул; 34.555; 69.207
+city; karachi; Карачи; 24.861; 67.010
+city; lahore; Лахор; 31.520; 74.359
+city; delhi; Дели; 28.614; 77.209
+city; mumbai; Мумбаи; 19.076; 72.878
+city; bangalore; Бангалор; 12.972; 77.595
+city; chennai; Ченнаи; 13.083; 80.271
+city; kolkata; Калькутта; 22.573; 88.364
+city; colombo; Коломбо; 6.927; 79.861
+city; dhaka; Дакка; 23.811; 90.413
+city; yangon; Янгон; 16.866; 96.195
+city; bangkok; Бангкок; 13.756; 100.502
+city; hanoi; Ханой; 21.028; 105.854
+city; ho_chi_minh; Хошимин; 10.823; 106.630
+city; kuala_lumpur; Куала-Лумпур; 3.139; 101.687
+city; singapore; Сингапур; 1.352; 103.820
+city; jakarta; Джакарта; -6.208; 106.846
+city; surabaya; Сурабая; -7.257; 112.752
+city; manila; Манила; 14.600; 120.984
+city; kunming; Куньмин; 25.039; 102.718
+city; guangzhou; Гуанчжоу; 23.129; 113.264
+city; hong_kong; Гонконг; 22.320; 114.170
+city; chengdu; Чэнду; 30.573; 104.066
+city; wuhan; Ухань; 30.593; 114.305
+city; shanghai; Шанхай; 31.230; 121.474
+city; xian; Сиань; 34.341; 108.940
+city; beijing; Пекин; 39.904; 116.407
+city; urumqi; Урумчи; 43.825; 87.617
+city; harbin; Харбин; 45.803; 126.535
+city; ulaanbaatar; Улан-Батор; 47.886; 106.906
+city; seoul; Сеул; 37.567; 126.978
+city; busan; Пусан; 35.180; 129.076
+city; fukuoka; Фукуока; 33.590; 130.402
+city; osaka; Осака; 34.694; 135.502
+city; tokyo; Токио; 35.676; 139.650
+city; sapporo; Саппоро; 43.062; 141.354
+city; yekaterinburg; Екатеринбург; 56.838; 60.597
+city; omsk; Омск; 54.989; 73.369
+city; novosibirsk; Новосибирск; 55.008; 82.935
+city; krasnoyarsk; Красноярск; 56.010; 92.852
+city; irkutsk; Иркутск; 52.287; 104.305
+city; yakutsk; Якутск; 62.035; 129.675
+city; khabarovsk; Хабаровск; 48.480; 135.072
+city; vladivostok; Владивосток; 43.116; 131.886
+city; magadan; Магадан; 59.568; 150.808
+
+# ---------- Линии ----------
+
+# Кавказ, Турция, Ближний Восток
+line; ankara; yerevan
+line; ankara; damascus
+line; tbilisi; yerevan
+line; tbilisi; baku
+line; yerevan; baku
+line; yerevan; baghdad
+line; baku; tehran
+line; tehran; baghdad
+line; tehran; ashgabat
+line; tehran; mashhad
+line; mashhad; ashgabat
+line; mashhad; tashkent
+line; mashhad; kabul
+line; baghdad; damascus
+line; baghdad; riyadh
+line; damascus; amman
+line; tel_aviv; amman
+line; amman; jeddah
+line; riyadh; jeddah
+line; riyadh; dubai
+line; dubai; muscat
+
+# Средняя Азия
+line; ashgabat; tashkent
+line; tashkent; almaty
+line; tashkent; astana
+line; tashkent; kabul
+line; almaty; astana
+line; almaty; urumqi
+line; astana; omsk
+
+# Пакистан и Индия
+line; kabul; karachi
+line; kabul; lahore
+line; karachi; lahore
+line; karachi; delhi
+line; karachi; mumbai
+line; lahore; delhi
+line; delhi; mumbai
+line; delhi; kolkata
+line; mumbai; bangalore
+line; bangalore; chennai
+line; chennai; kolkata
+line; chennai; colombo
+line; kolkata; dhaka
+
+# Юго-Восточная Азия
+line; dhaka; yangon
+line; yangon; bangkok
+line; yangon; kunming
+line; bangkok; hanoi
+line; bangkok; ho_chi_minh
+line; bangkok; kuala_lumpur
+line; hanoi; ho_chi_minh
+line; hanoi; kunming
+line; hanoi; guangzhou
+line; kuala_lumpur; singapore
+line; singapore; jakarta
+line; jakarta; surabaya
+line; manila; hong_kong
+
+# Китай, Корея, Япония
+line; kunming; chengdu
+line; guangzhou; hong_kong
+line; guangzhou; chengdu
+line; guangzhou; wuhan
+line; chengdu; xian
+line; wuhan; shanghai
+line; wuhan; xian
+line; wuhan; beijing
+line; shanghai; beijing
+line; xian; beijing
+line; beijing; harbin
+line; beijing; ulaanbaatar
+line; beijing; seoul
+line; seoul; busan
+line; busan; fukuoka
+line; fukuoka; osaka
+line; osaka; tokyo
+line; tokyo; sapporo
+
+# Сибирь и Дальний Восток
+line; urumqi; ulaanbaatar
+line; urumqi; novosibirsk
+line; ulaanbaatar; irkutsk
+line; harbin; khabarovsk
+line; harbin; vladivostok
+line; yekaterinburg; omsk
+line; omsk; novosibirsk
+line; novosibirsk; krasnoyarsk
+line; krasnoyarsk; irkutsk
+line; irkutsk; khabarovsk
+line; khabarovsk; vladivostok
+line; khabarovsk; yakutsk
+line; yakutsk; magadan

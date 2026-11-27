@@ -12,7 +12,8 @@ namespace TrainManager.EditorTools
     /// Импорт карты из текстовых файлов Assets/Data/MapSource/*.txt в конфиги
     /// (RegionData, CityData, RailwayLineData) и в GameDatabase.
     /// Текстовый файл — главный источник: при каждом импорте ассеты обновляются по нему.
-    /// Формат описан в начале файла Europe.txt.
+    /// Формат описан в начале файла _World.txt. Файлы читаются в два прохода, поэтому
+    /// линия может соединять города из разных файлов (межконтинентальные линии).
     /// Дистанция линии, если не задана вручную, = расстояние по прямой между городами в км,
     /// округлённое до 10.
     /// </summary>
@@ -40,21 +41,80 @@ namespace TrainManager.EditorTools
                 return null;
             }
 
+            // ---- Проход 1: прочитать все файлы (порядок не важен) ----
+            var parsed = new ParsedMap();
+            string[] files = Directory.GetFiles(SourceFolder, "*.txt");
+            Array.Sort(files, StringComparer.Ordinal);
+            foreach (string file in files)
+                ParseFile(file.Replace('\\', '/'), parsed);
+
+            // ---- Проход 2: создать/обновить ассеты ----
             EnsureFolder(DataRoot + "/Regions");
             EnsureFolder(DataRoot + "/Cities");
             EnsureFolder(DataRoot + "/Lines");
 
-            GameDatabase db = LoadOrCreate<GameDatabase>(DatabasePath);
+            var regionById = new Dictionary<string, RegionData>();
             var regions = new List<RegionData>();
+            foreach (RegionRow r in parsed.regions)
+            {
+                if (regionById.ContainsKey(r.id))
+                {
+                    parsed.Error(r.where, $"регион «{r.id}» уже есть");
+                    continue;
+                }
+                RegionData region = LoadOrCreate<RegionData>($"{DataRoot}/Regions/Region_{r.id}.asset");
+                region.regionId = r.id;
+                region.displayName = r.name;
+                EditorUtility.SetDirty(region);
+                regionById.Add(r.id, region);
+                regions.Add(region);
+            }
+
+            var cityById = new Dictionary<string, CityData>();
             var cities = new List<CityData>();
+            foreach (CityRow c in parsed.cities)
+            {
+                if (cityById.ContainsKey(c.id))
+                {
+                    parsed.Error(c.where, $"город «{c.id}» уже есть");
+                    continue;
+                }
+                CityData city = LoadOrCreate<CityData>($"{DataRoot}/Cities/City_{c.id}.asset");
+                city.cityId = c.id;
+                city.displayName = c.name;
+                city.latitude = (float)c.lat;
+                city.longitude = (float)c.lon;
+                city.region = c.regionId != null && regionById.TryGetValue(c.regionId, out RegionData reg) ? reg : null;
+                city.mapPosition = Project(c.lat, c.lon, parsed);
+                EditorUtility.SetDirty(city);
+                cityById.Add(c.id, city);
+                cities.Add(city);
+            }
+
             var lines = new List<RailwayLineData>();
-            int errors = 0;
+            var pairs = new HashSet<string>();
+            foreach (LineRow l in parsed.lines)
+            {
+                if (!cityById.TryGetValue(l.a, out CityData a)) { parsed.Error(l.where, $"нет города «{l.a}»"); continue; }
+                if (!cityById.TryGetValue(l.b, out CityData b)) { parsed.Error(l.where, $"нет города «{l.b}»"); continue; }
+                if (a == b) { parsed.Error(l.where, "линия из города в него же"); continue; }
 
-            string[] files = Directory.GetFiles(SourceFolder, "*.txt");
-            Array.Sort(files, StringComparer.Ordinal);
-            foreach (string file in files)
-                errors += ImportFile(file.Replace('\\', '/'), regions, cities, lines);
+                string pairKey = string.CompareOrdinal(l.a, l.b) < 0 ? l.a + "|" + l.b : l.b + "|" + l.a;
+                if (!pairs.Add(pairKey)) { parsed.Error(l.where, $"линия {l.a} — {l.b} уже есть"); continue; }
 
+                string lineId = l.a + "_" + l.b;
+                RailwayLineData line = LoadOrCreate<RailwayLineData>($"{DataRoot}/Lines/Line_{lineId}.asset");
+                line.lineId = lineId;
+                line.region = l.regionId != null && regionById.TryGetValue(l.regionId, out RegionData reg) ? reg : null;
+                line.cityA = a;
+                line.cityB = b;
+                line.distance = l.distance > 0 ? (float)l.distance : GeoDistanceRounded(a, b);
+                line.color = AutoColor(lines.Count);
+                EditorUtility.SetDirty(line);
+                lines.Add(line);
+            }
+
+            GameDatabase db = LoadOrCreate<GameDatabase>(DatabasePath);
             db.regions = regions;
             db.cities = cities;
             db.lines = lines;
@@ -63,20 +123,36 @@ namespace TrainManager.EditorTools
             AssetDatabase.SaveAssets();
 
             string summary = $"[Map Import] Регионов: {regions.Count}, городов: {cities.Count}, линий: {lines.Count}";
-            if (errors > 0) Debug.LogError($"{summary}. Ошибок: {errors} (см. сообщения выше)");
+            if (parsed.errors > 0) Debug.LogError($"{summary}. Ошибок: {parsed.errors} (см. сообщения выше)");
             else Debug.Log(summary);
             return db;
         }
 
-        private static int ImportFile(string path, List<RegionData> regions, List<CityData> cities,
-            List<RailwayLineData> lines)
-        {
-            int errors = 0;
-            RegionData region = null;
-            double lat0 = 0, lon0 = 0, scale = 38, offsetX = 0, offsetY = 0;
-            var cityById = new Dictionary<string, CityData>();
-            foreach (CityData c in cities) cityById[c.cityId] = c;
+        // ================= Чтение файлов =================
 
+        private class RegionRow { public string id, name, where; }
+        private class CityRow { public string id, name, regionId, where; public double lat, lon; }
+        private class LineRow { public string a, b, regionId, where; public double distance; }
+
+        private class ParsedMap
+        {
+            public readonly List<RegionRow> regions = new List<RegionRow>();
+            public readonly List<CityRow> cities = new List<CityRow>();
+            public readonly List<LineRow> lines = new List<LineRow>();
+            public double lat0, lon0 = 10, scale = 24, offsetX, offsetY;
+            public bool hasMap;
+            public int errors;
+
+            public void Error(string where, string message)
+            {
+                errors++;
+                Debug.LogError($"[Map Import] {where}: {message}");
+            }
+        }
+
+        private static void ParseFile(string path, ParsedMap map)
+        {
+            string regionId = null;
             string[] rows = File.ReadAllLines(path);
             for (int n = 0; n < rows.Length; n++)
             {
@@ -96,69 +172,34 @@ namespace TrainManager.EditorTools
                     {
                         case "region":
                             Need(p, 3);
-                            region = LoadOrCreate<RegionData>($"{DataRoot}/Regions/Region_{p[1]}.asset");
-                            region.regionId = p[1];
-                            region.displayName = p[2];
-                            EditorUtility.SetDirty(region);
-                            if (!regions.Contains(region)) regions.Add(region);
+                            regionId = p[1];
+                            map.regions.Add(new RegionRow { id = p[1], name = p[2], where = where });
                             break;
 
                         case "map":
                             Need(p, 6);
-                            lat0 = Num(p[1]); lon0 = Num(p[2]); scale = Num(p[3]);
-                            offsetX = Num(p[4]); offsetY = Num(p[5]);
+                            if (map.hasMap) throw new Exception("команда map уже была (она одна на всю карту)");
+                            map.hasMap = true;
+                            map.lat0 = Num(p[1]); map.lon0 = Num(p[2]); map.scale = Num(p[3]);
+                            map.offsetX = Num(p[4]); map.offsetY = Num(p[5]);
                             break;
 
                         case "city":
-                        {
                             Need(p, 5);
-                            string id = p[1];
-                            if (cityById.ContainsKey(id)) throw new Exception($"город «{id}» уже есть");
-
-                            CityData city = LoadOrCreate<CityData>($"{DataRoot}/Cities/City_{id}.asset");
-                            city.cityId = id;
-                            city.displayName = p[2];
-                            city.latitude = (float)Num(p[3]);
-                            city.longitude = (float)Num(p[4]);
-                            city.region = region;
-                            // Равнопромежуточная проекция с поправкой на широту — для Европы выглядит нормально
-                            double k = Math.Cos(lat0 * Math.PI / 180.0);
-                            city.mapPosition = new Vector2(
-                                (float)Math.Round((city.longitude - lon0) * k * scale + offsetX),
-                                (float)Math.Round((city.latitude - lat0) * scale + offsetY));
-                            EditorUtility.SetDirty(city);
-
-                            cityById.Add(id, city);
-                            cities.Add(city);
+                            map.cities.Add(new CityRow
+                            {
+                                id = p[1], name = p[2], lat = Num(p[3]), lon = Num(p[4]), regionId = regionId, where = where
+                            });
                             break;
-                        }
 
                         case "line":
-                        {
                             Need(p, 3);
-                            if (!cityById.TryGetValue(p[1], out CityData a)) throw new Exception($"нет города «{p[1]}»");
-                            if (!cityById.TryGetValue(p[2], out CityData b)) throw new Exception($"нет города «{p[2]}»");
-                            if (a == b) throw new Exception("линия из города в него же");
-
-                            string lineId = p[1] + "_" + p[2];
-                            foreach (RailwayLineData existing in lines)
+                            map.lines.Add(new LineRow
                             {
-                                if (existing.Connects(a, b)) throw new Exception($"линия {p[1]} — {p[2]} уже есть");
-                            }
-
-                            RailwayLineData line = LoadOrCreate<RailwayLineData>($"{DataRoot}/Lines/Line_{lineId}.asset");
-                            line.lineId = lineId;
-                            line.region = region;
-                            line.cityA = a;
-                            line.cityB = b;
-                            line.distance = p.Length >= 4 && p[3].Length > 0
-                                ? (float)Num(p[3])
-                                : GeoDistanceRounded(a, b);
-                            line.color = AutoColor(lines.Count);
-                            EditorUtility.SetDirty(line);
-                            lines.Add(line);
+                                a = p[1], b = p[2], regionId = regionId, where = where,
+                                distance = p.Length >= 4 && p[3].Length > 0 ? Num(p[3]) : 0
+                            });
                             break;
-                        }
 
                         default:
                             throw new Exception($"неизвестная команда «{p[0]}»");
@@ -166,11 +207,25 @@ namespace TrainManager.EditorTools
                 }
                 catch (Exception e)
                 {
-                    errors++;
-                    Debug.LogError($"[Map Import] {where}: {e.Message}");
+                    map.Error(where, e.Message);
                 }
             }
-            return errors;
+        }
+
+        /// <summary>Проекция Меркатора: широта/долгота → позиция на карте (пиксели от центра).</summary>
+        private static Vector2 Project(double lat, double lon, ParsedMap map)
+        {
+            double x = (lon - map.lon0) * map.scale + map.offsetX;
+            double y = (MercatorY(lat) - MercatorY(map.lat0)) * map.scale + map.offsetY;
+            return new Vector2((float)Math.Round(x), (float)Math.Round(y));
+        }
+
+        /// <summary>Меркатор в «градусах», чтобы масштаб по X и Y был одинаковым.</summary>
+        private static double MercatorY(double lat)
+        {
+            double clamped = Math.Max(-85.0, Math.Min(85.0, lat));
+            double rad = clamped * Math.PI / 180.0;
+            return Math.Log(Math.Tan(Math.PI / 4 + rad / 2)) * 180.0 / Math.PI;
         }
 
         /// <summary>Расстояние по прямой (по поверхности Земли), км, округлённое до 10. Минимум 10.</summary>

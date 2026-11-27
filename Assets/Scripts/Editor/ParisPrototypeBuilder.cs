@@ -102,14 +102,33 @@ namespace TrainManager.EditorTools
             canvasGo.AddComponent<GraphicRaycaster>();
             Transform canvasT = canvasGo.transform;
 
-            Image background = CreateImage("Background", canvasT, new Color(0.18f, 0.24f, 0.2f));
-            Stretch(background.rectTransform);
+            // Окно карты (viewport): перетаскивание через ScrollRect, масштаб — MapNavigator
+            var viewportGo = new GameObject("MapViewport", typeof(RectTransform));
+            viewportGo.transform.SetParent(canvasT, false);
+            var viewportRect = (RectTransform)viewportGo.transform;
+            Stretch(viewportRect);
+            Image viewportImage = viewportGo.AddComponent<Image>();
+            viewportImage.color = new Color(0.16f, 0.3f, 0.5f); // «море»; картинка нужна, чтобы ловить перетаскивание
+            viewportGo.AddComponent<RectMask2D>();
 
-            // Карта
+            // Карта (content) — размер по крайним городам + поля
             var mapGo = new GameObject("Map", typeof(RectTransform));
-            mapGo.transform.SetParent(canvasT, false);
-            Stretch((RectTransform)mapGo.transform);
+            mapGo.transform.SetParent(viewportGo.transform, false);
+            var mapRect = (RectTransform)mapGo.transform;
+            mapRect.anchorMin = mapRect.anchorMax = new Vector2(0.5f, 0.5f);
+            mapRect.pivot = new Vector2(0.5f, 0.5f);
+            mapRect.sizeDelta = MapSize(database, 200f);
             MapView map = mapGo.AddComponent<MapView>();
+
+            var scroll = viewportGo.AddComponent<ScrollRect>();
+            scroll.viewport = viewportRect;
+            scroll.content = mapRect;
+            scroll.horizontal = true;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.inertia = true;
+            scroll.decelerationRate = 0.1f;
+            scroll.scrollSensitivity = 0f; // колесо мыши — масштаб, а не прокрутка
 
             foreach (RailwayLineData line in database.lines)
                 CreateLine(line, mapGo.transform);
@@ -119,13 +138,18 @@ namespace TrainManager.EditorTools
 
             // Картинка поезда на карте (последней — чтобы рисовалась поверх станций)
             Image trainImage = CreateImage("Train_Standard (View)", mapGo.transform, new Color(0.85f, 0.2f, 0.2f));
-            trainImage.rectTransform.sizeDelta = new Vector2(44f, 22f);
+            trainImage.rectTransform.sizeDelta = new Vector2(30f, 16f);
             trainImage.rectTransform.anchoredPosition = database.startCity.mapPosition;
             trainImage.raycastTarget = false;
             TrainView trainView = trainImage.gameObject.AddComponent<TrainView>();
             trainView.root = root;
             trainView.map = map;
             trainView.trainIndex = 0;
+
+            MapNavigator navigator = viewportGo.AddComponent<MapNavigator>();
+            navigator.scroll = scroll;
+            navigator.content = mapRect;
+            navigator.root = root;
 
             // Статус
             TMP_Text status = CreateText("TrainStatus", canvasT, "", 26, TextAlignmentOptions.TopLeft);
@@ -135,6 +159,8 @@ namespace TrainManager.EditorTools
             statusRect.pivot = new Vector2(0f, 1f);
             statusRect.anchoredPosition = new Vector2(40f, -30f);
             statusRect.sizeDelta = new Vector2(700f, 180f);
+            status.outlineWidth = 0.2f;
+            status.outlineColor = Color.black;
             TrainStatusText statusText = status.gameObject.AddComponent<TrainStatusText>();
             statusText.root = root;
             statusText.text = status;
@@ -147,17 +173,19 @@ namespace TrainManager.EditorTools
             panelRect.anchorMax = new Vector2(0.5f, 0f);
             panelRect.pivot = new Vector2(0.5f, 0f);
             panelRect.anchoredPosition = new Vector2(0f, 20f);
-            panelRect.sizeDelta = new Vector2(1700f, 100f);
+            panelRect.sizeDelta = new Vector2(1760f, 110f);
+            Image panelBg = panelGo.AddComponent<Image>();
+            panelBg.color = new Color(0f, 0f, 0f, 0.6f);
 
             TMP_Text planText = CreateText("PlanText", panelGo.transform, "", 26, TextAlignmentOptions.MidlineLeft);
             RectTransform planRect = planText.rectTransform;
             planRect.anchorMin = new Vector2(0f, 0f);
             planRect.anchorMax = new Vector2(1f, 1f);
-            planRect.offsetMin = Vector2.zero;
-            planRect.offsetMax = new Vector2(-560f, 0f);
+            planRect.offsetMin = new Vector2(20f, 0f);
+            planRect.offsetMax = new Vector2(-580f, 0f);
 
-            Button sendButton = CreateButton("SendButton", panelGo.transform, "Отправить", new Vector2(-280f, 0f));
-            Button clearButton = CreateButton("ClearButton", panelGo.transform, "Сбросить", new Vector2(0f, 0f));
+            Button sendButton = CreateButton("SendButton", panelGo.transform, "Отправить", new Vector2(-290f, 0f));
+            Button clearButton = CreateButton("ClearButton", panelGo.transform, "Сбросить", new Vector2(-10f, 0f));
 
             RoutePlanner planner = panelGo.AddComponent<RoutePlanner>();
             planner.root = root;
@@ -192,6 +220,19 @@ namespace TrainManager.EditorTools
 
             SaveService.Delete();
             Debug.Log("[Train Manager] Сохранение удалено: " + SaveService.SavePath);
+        }
+
+        /// <summary>Размер карты: симметрично от центра до самого дальнего города + поля.</summary>
+        private static Vector2 MapSize(GameDatabase database, float margin)
+        {
+            float halfX = 0f, halfY = 0f;
+            foreach (CityData city in database.cities)
+            {
+                if (city == null) continue;
+                halfX = Mathf.Max(halfX, Mathf.Abs(city.mapPosition.x));
+                halfY = Mathf.Max(halfY, Mathf.Abs(city.mapPosition.y));
+            }
+            return new Vector2((halfX + margin) * 2f, (halfY + margin) * 2f);
         }
 
         private static void AddUnique<T>(List<T> list, T item) where T : UnityEngine.Object
@@ -267,15 +308,15 @@ namespace TrainManager.EditorTools
         private static void CreateStation(CityData city, Transform map)
         {
             Image dot = CreateImage("Station_" + city.cityId, map, StationView.NormalColor);
-            dot.rectTransform.sizeDelta = new Vector2(26f, 26f);
+            dot.rectTransform.sizeDelta = new Vector2(18f, 18f);
             dot.rectTransform.anchoredPosition = city.mapPosition;
             Button button = dot.gameObject.AddComponent<Button>();
             button.targetGraphic = dot;
             button.transition = Selectable.Transition.None; // цвет меняет RoutePlanner (подсветка)
 
-            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 22, TextAlignmentOptions.Center);
-            label.rectTransform.anchoredPosition = new Vector2(0f, -26f);
-            label.rectTransform.sizeDelta = new Vector2(220f, 30f);
+            TMP_Text label = CreateText("Label", dot.transform, city.displayName, 16, TextAlignmentOptions.Center);
+            label.rectTransform.anchoredPosition = new Vector2(0f, -18f);
+            label.rectTransform.sizeDelta = new Vector2(180f, 22f);
 
             StationView view = dot.gameObject.AddComponent<StationView>();
             view.city = city;
@@ -293,7 +334,7 @@ namespace TrainManager.EditorTools
             line.raycastTarget = false;
             RectTransform rect = line.rectTransform;
             Vector2 delta = b - a;
-            rect.sizeDelta = new Vector2(delta.magnitude, 5f);
+            rect.sizeDelta = new Vector2(delta.magnitude, 4f);
             rect.anchoredPosition = (a + b) * 0.5f;
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }

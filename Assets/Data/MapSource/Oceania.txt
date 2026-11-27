@@ -1,0 +1,36 @@
+# Регион «Океания» — источник данных для Tools → Train Manager → Import Map Data.
+# Ключевые города страны, реальные координаты. Линии проведены по географическому правилу:
+# соседние города, правдоподобные сухопутные коридоры и несколько морских переправ.
+# Формат и общие настройки карты — в файле _World.txt.
+
+region; oceania; Океания
+
+# ---------- Города ----------
+city; perth; Перт; -31.951; 115.861
+city; adelaide; Аделаида; -34.929; 138.601
+city; melbourne; Мельбурн; -37.814; 144.963
+city; sydney; Сидней; -33.869; 151.209
+city; brisbane; Брисбен; -27.470; 153.026
+city; cairns; Кэрнс; -16.918; 145.778
+city; darwin; Дарвин; -12.463; 130.846
+city; alice_springs; Алис-Спрингс; -23.698; 133.881
+city; port_moresby; Порт-Морсби; -9.443; 147.180
+city; auckland; Окленд; -36.849; 174.763
+city; wellington; Веллингтон; -41.287; 174.776
+city; christchurch; Крайстчерч; -43.532; 172.637
+
+# ---------- Линии ----------
+line; perth; adelaide
+line; adelaide; melbourne
+line; adelaide; alice_springs
+line; melbourne; sydney
+line; sydney; brisbane
+line; brisbane; cairns
+line; cairns; darwin
+line; cairns; port_moresby
+line; darwin; alice_springs
+
+# Новая Зеландия
+line; sydney; auckland
+line; auckland; wellington
+line; wellington; christchurch
