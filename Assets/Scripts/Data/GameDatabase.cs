@@ -151,6 +151,32 @@ namespace TrainManager.Data
             new AchievementData { achievementId = "quest_1", displayName = "Первое задание", stat = AchievementStat.QuestsCompleted, target = 1, reward = new RewardData { dollars = 5 } },
         };
 
+        [Header("Ads (черновик: лимиты и награды — уточнить)")]
+        [Tooltip("Ежедневная серия: награда за каждый просмотр по порядку; последняя — супербонус")]
+        public List<RewardData> adSeriesRewards = new List<RewardData>
+        {
+            new RewardData { coins = 100 },
+            new RewardData { dollars = 2 },
+            new RewardData { coins = 200 },
+            new RewardData { dollars = 10, boxIds = new List<string> { "box_rare" } },
+        };
+        [Tooltip("«Посмотри рекламу — получи N $»")]
+        [Min(0)] public int adDollarReward = 15;
+        [Tooltip("Сколько раз в день можно смотреть рекламу за доллары (вместе с бонусами станций и летящим призом)")]
+        [Min(0)] public int adDollarsPerDay = 3;
+        [Tooltip("Шанс, что у станции в текущем списке вагонов есть бонус")]
+        [Range(0f, 1f)] public float stationBonusChance = 0.2f;
+        [Tooltip("Летящий приз: раз во сколько минут игры появляется и сколько секунд висит")]
+        [Min(1)] public int flyingPrizeMinutes = 5;
+        [Min(1)] public int flyingPrizeSeconds = 20;
+        [Tooltip("Доли исходов бонуса: просто монеты / просто доллар / предложение рекламы")]
+        [Min(0f)] public float bonusShareCoins = 0.5f;
+        [Min(0f)] public float bonusShareDollar = 0.2f;
+        [Min(0f)] public float bonusShareAd = 0.3f;
+        [Min(0)] public int bonusCoinsMin = 30;
+        [Min(0)] public int bonusCoinsMax = 80;
+        [Min(0)] public int bonusDollars = 1;
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]

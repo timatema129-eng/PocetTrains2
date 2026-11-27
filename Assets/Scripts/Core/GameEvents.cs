@@ -69,6 +69,11 @@ namespace TrainManager.Core
         public void RaiseQuestsChanged() => QuestsChanged?.Invoke();
         public void RaiseAchievementUnlocked(AchievementData a) => AchievementUnlocked?.Invoke(a);
 
+        /// <summary>Просмотрена реклама или забран бонус.</summary>
+        public event Action AdsChanged;
+
+        public void RaiseAdsChanged() => AdsChanged?.Invoke();
+
         /// <summary>У линии изменились пути или цвет.</summary>
         public event Action<RailwayLineData> LineChanged;
 

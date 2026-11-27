@@ -267,7 +267,7 @@ namespace TrainManager.Core
         }
 
         /// <summary>Стабильное зерно из ID города и номера периода (string.GetHashCode не стабилен между запусками).</summary>
-        private static int Seed(string text, long period)
+        public static int Seed(string text, long period)
         {
             unchecked
             {

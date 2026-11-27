@@ -7,7 +7,8 @@ using TrainManager.Data;
 namespace TrainManager.UI
 {
     /// <summary>
-    /// Магазин: курс и обмен $ → монеты, боксы, место под покупки за реальные деньги (заглушка).
+    /// Магазин: курс и обмен $ → монеты, боксы, реклама (серия дня и «реклама за $»),
+    /// место под покупки за реальные деньги (заглушка).
     /// Открывается кнопкой «Магазин». Расширение склада — в окне станции (оно своё у каждой станции).
     /// </summary>
     public class ShopWindow : MonoBehaviour
@@ -79,6 +80,10 @@ namespace TrainManager.UI
                 row.action = "box";
             }
 
+            AddRow("<b>Реклама</b> (по желанию)");
+            AddRow("", "Смотреть", () => root.Ads.WatchSeries()).action = "series";
+            AddRow("", "Смотреть", () => root.Ads.WatchForDollars()).action = "dollarAd";
+
             AddRow("<b>Покупки за реальные деньги</b>");
             ListRow iap = AddRow("  Скоро", "—");
             iap.button.interactable = false;
@@ -110,12 +115,34 @@ namespace TrainManager.UI
                     row.button.interactable = ex.CanExchange(dollars, out _);
                     k++;
                 }
+                else if (row.action == "series")
+                {
+                    AdsService ads = root.Ads;
+                    if (row.label != null)
+                        row.label.text = ads.SeriesDone
+                            ? $"  Серия дня: {ads.SeriesWatched}/{ads.SeriesLength} ✓ · новая через {FormatTime(ads.SecondsToNewDay)}"
+                            : $"  Серия дня: {ads.SeriesWatched}/{ads.SeriesLength} · за просмотр: {ads.Describe(ads.NextSeriesReward)}" +
+                              (ads.SeriesWatched == ads.SeriesLength - 1 ? " <color=#ffd24a>(супербонус)</color>" : "");
+                    row.button.interactable = !ads.SeriesDone;
+                }
+                else if (row.action == "dollarAd")
+                {
+                    if (row.label != null)
+                        row.label.text = $"  Посмотри рекламу — получи {root.Database.adDollarReward} $ · осталось сегодня {root.Ads.DollarAdsLeft}";
+                    row.button.interactable = root.Ads.DollarAdsLeft > 0;
+                }
                 else if (row.action == "box")
                 {
                     row.button.interactable = root.Parts.CanOpenBox(rowBoxes[k], out _);
                     k++;
                 }
             }
+        }
+
+        private static string FormatTime(float seconds)
+        {
+            int s = Mathf.CeilToInt(seconds);
+            return $"{s / 3600}:{s / 60 % 60:00}:{s % 60:00}";
         }
 
         private ListRow AddRow(string text, string buttonText = null, UnityEngine.Events.UnityAction onClick = null)

@@ -303,6 +303,18 @@ namespace TrainManager.EditorTools
             CreateShopWindow(canvasT, root);
             CreateQuestWindow(canvasT, root, navigator, window);
 
+            // Реклама: окно-вопрос и летящий приз (последними — поверх всего)
+            AdPrompt prompt = CreateAdPrompt(canvasT);
+            window.prompt = prompt;
+            Button prizeButton = CreateSmallButton("FlyingPrize", canvasT, "Приз!", 24);
+            ((RectTransform)prizeButton.transform).sizeDelta = new Vector2(140f, 64f);
+            prizeButton.GetComponent<Image>().color = new Color(1f, 0.82f, 0.29f);
+            FlyingPrize prize = canvasT.gameObject.AddComponent<FlyingPrize>();
+            prize.root = root;
+            prize.button = prizeButton;
+            prize.prompt = prompt;
+            prompt.transform.SetAsLastSibling();
+
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
             interaction.map = map;
@@ -718,6 +730,32 @@ namespace TrainManager.EditorTools
             window.listContainer = (RectTransform)go.transform;
             window.rowTemplate = row;
             // Окно остаётся активным в сцене: QuestWindow сам скроет его в Awake и повесит кнопку
+        }
+
+        private static AdPrompt CreateAdPrompt(Transform canvasT)
+        {
+            Image bg = CreateImage("AdPrompt", canvasT, new Color(0.05f, 0.07f, 0.1f, 0.96f));
+            Place(bg.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(620f, 240f));
+
+            TMP_Text label = CreateText("Text", bg.transform, "", 26, TextAlignmentOptions.Center);
+            Place(label.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -20f), new Vector2(-40f, 120f));
+
+            Button yes = CreateSmallButton("Yes", bg.transform, "Смотреть", 24);
+            Place((RectTransform)yes.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(1f, 0f),
+                new Vector2(-10f, 20f), new Vector2(220f, 60f));
+            Button no = CreateSmallButton("No", bg.transform, "Нет", 24);
+            Place((RectTransform)no.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 0f),
+                new Vector2(10f, 20f), new Vector2(220f, 60f));
+
+            AdPrompt prompt = bg.gameObject.AddComponent<AdPrompt>();
+            prompt.label = label;
+            prompt.yesButton = yes;
+            prompt.yesLabel = yes.GetComponentInChildren<TMP_Text>();
+            prompt.noButton = no;
+            // Окно активно в сцене: AdPrompt сам скроет себя в Awake
+            return prompt;
         }
 
         /// <summary>Шаблон строки списка: текст + кнопка справа + скрытая вторая кнопка (выключен).</summary>

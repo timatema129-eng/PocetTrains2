@@ -30,6 +30,7 @@ namespace TrainManager.Core
         public RewardService Rewards { get; private set; }
         public QuestService Quests { get; private set; }
         public AchievementService Achievements { get; private set; }
+        public AdsService Ads { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -65,6 +66,7 @@ namespace TrainManager.Core
             Exchange = new ExchangeService(database, clock, Wallet);
             Rewards = new RewardService(State, database, Wallet, Parts, Events);
             Quests = new QuestService(State, database, clock, Events, Network, Rewards); // подписывается на доставку
+            Ads = new AdsService(State, database, clock, Rewards, Wagons, new StubAdService(), Events); // позже — реальный SDK
 
             if (isNewGame)
                 StartNewGame();
@@ -87,6 +89,7 @@ namespace TrainManager.Core
             Events.TrainConditionChanged += train => Save();
             Events.WalletChanged += (currency, balance, delta, reason) => Save(); // обмен, покупки, доход
             Events.QuestsChanged += () => Save();
+            Events.AdsChanged += () => Save();
             Events.AchievementUnlocked += a => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,

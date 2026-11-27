@@ -70,5 +70,8 @@ namespace TrainManager.Core
 
         /// <summary>Какие позиции текущего списка уже куплены (исчезают до обновления).</summary>
         public System.Collections.Generic.List<int> boughtOfferSlots = new System.Collections.Generic.List<int>();
+
+        /// <summary>В каком периоде списка уже забран бонус станции (подарок или реклама). -1 — не забирали.</summary>
+        public long bonusClaimedPeriod = -1;
     }
 }

@@ -53,6 +53,9 @@ namespace TrainManager.Core
         public PlayerStats stats = new PlayerStats();
         public List<string> claimedAchievementIds = new List<string>();
 
+        /// <summary>Реклама: сколько просмотрено сегодня.</summary>
+        public AdState ads = new AdState();
+
         public string NewInstanceId(string prefix)
         {
             string id = prefix + "_" + nextInstanceNumber;
@@ -140,6 +143,15 @@ namespace TrainManager.Core
         public int progress;
         public long startUnixMs;
         public long endUnixMs;
+    }
+
+    /// <summary>Просмотры рекламы за текущий день (день по часам устройства).</summary>
+    [Serializable]
+    public class AdState
+    {
+        public int dayKey;
+        public int seriesWatched;
+        public int dollarAdsWatched;
     }
 
     /// <summary>Счётчики игрока для достижений.</summary>

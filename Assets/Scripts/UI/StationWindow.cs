@@ -33,6 +33,8 @@ namespace TrainManager.UI
         public TMP_Text refuelLabel;
         public RectTransform listContainer;
         public ListRow rowTemplate;
+        [Tooltip("Окно-сообщение (подарок станции)")]
+        public AdPrompt prompt;
 
         public CityData City { get; private set; }
         public bool IsOpen => gameObject.activeSelf;
@@ -152,6 +154,7 @@ namespace TrainManager.UI
             foreach (QuestInstance q in root.Quests.GetQuestsIn(City.cityId)) sb.Append('|').Append(q.questId).Append(':').Append(q.progress);
             if (root.Quests.GetQuestsIn(City.cityId).Count > 0)
                 sb.Append('|').Append(Mathf.FloorToInt(Time.unscaledTime / 60f)); // раз в минуту обновить таймер задания
+            sb.Append('|').Append(root.Ads.GetStationBonus(City));
             sb.Append('|').Append(root.State.unlockedRegionIds.Count).Append('|').Append(root.State.ownedLineIds.Count);
             foreach (LineState ls in root.State.lineStates) // пути и цвета линий
                 sb.Append('|').Append(ls.lineId).Append(':').Append(ls.extraTracks).Append(':').Append(ls.colorIndex);
@@ -270,6 +273,18 @@ namespace TrainManager.UI
 
             // ---- Покупка ----
             offersHeader = AddRow("<b>Купить вагон</b>");
+            CityData bonusCity = City;
+            switch (root.Ads.GetStationBonus(City))
+            {
+                case BonusKind.Coins:
+                case BonusKind.Dollar:
+                    AddRow("  <color=#ffd24a>Подарок на станции</color>", "Забрать", () => ClaimBonus(bonusCity));
+                    break;
+                case BonusKind.AdOffer:
+                    AddRow($"  <color=#ffd24a>Посмотри рекламу — получи {root.Database.adDollarReward} $</color>", "Смотреть",
+                        () => root.Ads.ClaimStationBonus(bonusCity));
+                    break;
+            }
             List<WagonOffer> offers = root.Wagons.GetOffers(City);
             if (offers.Count == 0) AddRow("  всё раскуплено — ждите обновления");
             foreach (WagonOffer offer in offers)
@@ -376,6 +391,17 @@ namespace TrainManager.UI
             root.Network.GetTrackCount(line) >= root.Database.maxTracksPerLine
                 ? "Путей макс."
                 : $"+путь {root.Network.GetTrackPrice(line)}";
+
+        private void ClaimBonus(CityData city)
+        {
+            long before = root.Wallet.Coins, beforeD = root.Wallet.Dollars;
+            root.Ads.ClaimStationBonus(city);
+            if (prompt != null)
+            {
+                long dc = root.Wallet.Coins - before, dd = root.Wallet.Dollars - beforeD;
+                prompt.Info(dd > 0 ? $"Подарок: {dd} $" : $"Подарок: {dc} монет");
+            }
+        }
 
         private ListRow AddRow(string text, string buttonText = null, UnityEngine.Events.UnityAction onClick = null)
         {
