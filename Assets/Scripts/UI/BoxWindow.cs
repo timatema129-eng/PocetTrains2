@@ -44,6 +44,7 @@ namespace TrainManager.UI
             var sb = new StringBuilder();
             sb.Append(root.Wallet.Dollars).Append('|').Append(root.Parts.Scrap).Append('|').Append(lastDrop);
             foreach (PartStack s in root.Parts.AllParts) sb.Append('|').Append(s.trainId).Append(':').Append(s.count);
+            sb.Append('|').Append(root.State.wallet.boxes.Count);
             string sig = sb.ToString();
             if (sig == signature) return;
             signature = sig;
@@ -61,7 +62,9 @@ namespace TrainManager.UI
             {
                 if (box == null) continue;
                 BoxConfig captured = box;
-                ListRow row = AddRow($"  {box.displayName} ({RarityName(box.rarity)})", $"Открыть {box.priceDollars} $",
+                int owned = root.Parts.GetOwnedBoxes(box.boxId);
+                ListRow row = AddRow($"  {box.displayName} ({RarityName(box.rarity)}){(owned > 0 ? $" · в наличии {owned}" : "")}",
+                    owned > 0 ? "Открыть бесплатно" : $"Открыть {box.priceDollars} $",
                     () => Open(captured));
                 row.button.interactable = root.Parts.CanOpenBox(box, out _);
             }

@@ -44,6 +44,15 @@ namespace TrainManager.Core
         /// <summary>Пути и цвета купленных линий (только для тех, где что-то менялось).</summary>
         public List<LineState> lineStates = new List<LineState>();
 
+        /// <summary>Активные задания-события.</summary>
+        public List<QuestInstance> quests = new List<QuestInstance>();
+        /// <summary>Когда появится следующее задание (Unix, мс).</summary>
+        public long nextQuestUnixMs;
+
+        /// <summary>Счётчики для достижений и полученные достижения.</summary>
+        public PlayerStats stats = new PlayerStats();
+        public List<string> claimedAchievementIds = new List<string>();
+
         public string NewInstanceId(string prefix)
         {
             string id = prefix + "_" + nextInstanceNumber;
@@ -115,6 +124,34 @@ namespace TrainManager.Core
 
         /// <summary>Детали поездов: trainId → количество. Хранилище бесконечное.</summary>
         public List<PartStack> parts = new List<PartStack>();
+
+        /// <summary>Боксы, полученные в награду (boxId, по одному на запись) — открываются бесплатно.</summary>
+        public List<string> boxes = new List<string>();
+    }
+
+    /// <summary>Задание-событие в городе.</summary>
+    [Serializable]
+    public class QuestInstance
+    {
+        public string questId;
+        public string templateId;
+        public string cityId;
+        public int required;
+        public int progress;
+        public long startUnixMs;
+        public long endUnixMs;
+    }
+
+    /// <summary>Счётчики игрока для достижений.</summary>
+    [Serializable]
+    public class PlayerStats
+    {
+        public long regionsUnlocked;
+        public long linesBought;
+        public long wagonsDelivered;
+        public long trainsAssembled;
+        public double distanceKm;
+        public long questsCompleted;
     }
 
     [Serializable]

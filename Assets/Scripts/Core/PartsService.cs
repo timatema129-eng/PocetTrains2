@@ -6,7 +6,7 @@ namespace TrainManager.Core
 {
     /// <summary>
     /// Боксы, детали, сборка и разборка поездов (Этап 8).
-    /// Бокс открывается только за доллары и даёт 1 деталь случайной модели своей редкости.
+    /// Бокс открывается за доллары (или бесплатно, если получен в награду) и даёт 1 деталь случайной модели своей редкости.
     /// Детали копятся в бесконечном хранилище (Wallet.parts). Когда деталей хватает — поезд можно собрать.
     /// Разборка превращает поезд в лом (Wallet.scrap). Поломки и ремонт — не сделаны (правила не описаны).
     /// </summary>
@@ -27,6 +27,7 @@ namespace TrainManager.Core
             this.trains = trains;
             this.events = events;
             if (state.wallet.parts == null) state.wallet.parts = new List<PartStack>();
+            if (state.wallet.boxes == null) state.wallet.boxes = new List<string>();
         }
 
         public long Scrap => state.wallet.scrap;
@@ -48,7 +49,7 @@ namespace TrainManager.Core
             return null;
         }
 
-        private void AddParts(string trainId, int count)
+        public void AddParts(string trainId, int count)
         {
             PartStack stack = FindStack(trainId);
             if (stack == null)
@@ -60,6 +61,21 @@ namespace TrainManager.Core
         }
 
         // ================= Боксы =================
+
+        /// <summary>Сколько таких боксов получено в награду (открываются бесплатно).</summary>
+        public int GetOwnedBoxes(string boxId)
+        {
+            int n = 0;
+            foreach (string id in state.wallet.boxes)
+                if (id == boxId) n++;
+            return n;
+        }
+
+        public void AddBox(string boxId)
+        {
+            state.wallet.boxes.Add(boxId);
+            events.RaisePartsChanged();
+        }
 
         public bool CanOpenBox(BoxConfig box, out string reason)
         {
@@ -73,7 +89,7 @@ namespace TrainManager.Core
                 reason = "нет моделей поездов этой редкости";
                 return false;
             }
-            if (!wallet.CanAfford(Currency.Dollars, box.priceDollars))
+            if (GetOwnedBoxes(box.boxId) == 0 && !wallet.CanAfford(Currency.Dollars, box.priceDollars))
             {
                 reason = $"нужно {box.priceDollars} $";
                 return false;
@@ -91,7 +107,10 @@ namespace TrainManager.Core
                 Debug.LogWarning($"[Parts] Открыть бокс нельзя: {reason}");
                 return false;
             }
-            if (!wallet.TrySpend(Currency.Dollars, box.priceDollars, box.displayName))
+            // Сначала — бокс из наград (бесплатно), иначе за доллары
+            if (GetOwnedBoxes(box.boxId) > 0)
+                state.wallet.boxes.Remove(box.boxId);
+            else if (!wallet.TrySpend(Currency.Dollars, box.priceDollars, box.displayName))
                 return false;
 
             List<TrainData> pool = db.GetTrainsOfRarity(box.rarity);

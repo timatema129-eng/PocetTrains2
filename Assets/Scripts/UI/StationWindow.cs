@@ -149,6 +149,9 @@ namespace TrainManager.UI
             foreach (WagonOffer o in root.Wagons.GetOffers(City)) sb.Append(o.slot).Append(',');
             sb.Append('|').Append(TrainsHere().Count);
             sb.Append('|').Append(root.Wallet.Coins); // доступность служебных вагонов зависит от денег
+            foreach (QuestInstance q in root.Quests.GetQuestsIn(City.cityId)) sb.Append('|').Append(q.questId).Append(':').Append(q.progress);
+            if (root.Quests.GetQuestsIn(City.cityId).Count > 0)
+                sb.Append('|').Append(Mathf.FloorToInt(Time.unscaledTime / 60f)); // раз в минуту обновить таймер задания
             sb.Append('|').Append(root.State.unlockedRegionIds.Count).Append('|').Append(root.State.ownedLineIds.Count);
             foreach (LineState ls in root.State.lineStates) // пути и цвета линий
                 sb.Append('|').Append(ls.lineId).Append(':').Append(ls.extraTracks).Append(':').Append(ls.colorIndex);
@@ -173,6 +176,14 @@ namespace TrainManager.UI
                 ListRow regionRow = AddRow($"<b>Регион «{region.displayName}» закрыт</b>", $"Открыть {region.priceCoins}",
                     () => root.Network.TryUnlockRegion(region));
                 regionRow.region = region;
+            }
+
+            // ---- Задания в этом городе ----
+            foreach (QuestInstance q in root.Quests.GetQuestsIn(City.cityId))
+            {
+                int s = Mathf.CeilToInt(root.Quests.GetSecondsLeft(q));
+                AddRow($"<color=#ffd24a><b>! Задание:</b></color> {root.Quests.Describe(q)}\n" +
+                       $"  осталось {s / 3600}:{s / 60 % 60:00} · награда {root.Quests.DescribeReward(q)}");
             }
 
             // ---- Состав выбранного поезда ----

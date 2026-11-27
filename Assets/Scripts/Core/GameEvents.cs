@@ -61,6 +61,14 @@ namespace TrainManager.Core
 
         public void RaiseTrainConditionChanged(TrainInstance train) => TrainConditionChanged?.Invoke(train);
 
+        /// <summary>Задания изменились: появилось, прогресс, выполнено, истекло.</summary>
+        public event Action QuestsChanged;
+        /// <summary>Получено достижение.</summary>
+        public event Action<AchievementData> AchievementUnlocked;
+
+        public void RaiseQuestsChanged() => QuestsChanged?.Invoke();
+        public void RaiseAchievementUnlocked(AchievementData a) => AchievementUnlocked?.Invoke(a);
+
         /// <summary>У линии изменились пути или цвет.</summary>
         public event Action<RailwayLineData> LineChanged;
 

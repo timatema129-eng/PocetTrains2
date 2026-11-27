@@ -211,6 +211,17 @@ namespace TrainManager.EditorTools
             trainLayer.selection = selection;
             trainLayer.template = trainView;
 
+            // Значки заданий над городами
+            TMP_Text questMarker = CreateText("QuestMarkerTemplate", mapGo.transform, "!", 30, TextAlignmentOptions.Center);
+            questMarker.color = new Color(1f, 0.82f, 0.29f);
+            questMarker.fontStyle = FontStyles.Bold;
+            questMarker.rectTransform.sizeDelta = new Vector2(30f, 36f);
+            questMarker.gameObject.SetActive(false);
+            QuestMarkerLayer questLayer = mapGo.AddComponent<QuestMarkerLayer>();
+            questLayer.root = root;
+            questLayer.map = map;
+            questLayer.template = questMarker.rectTransform;
+
             MapNavigator navigator = viewportGo.AddComponent<MapNavigator>();
             navigator.scroll = scroll;
             navigator.content = mapRect;
@@ -290,6 +301,7 @@ namespace TrainManager.EditorTools
             CreateTrainList(canvasT, root, selection, navigator, window);
             CreateBoxWindow(canvasT, root);
             CreateShopWindow(canvasT, root);
+            CreateQuestWindow(canvasT, root, navigator, window);
 
             // Нажатие на станцию: маршрут или окно станции
             MapInteraction interaction = mapGo.AddComponent<MapInteraction>();
@@ -672,6 +684,40 @@ namespace TrainManager.EditorTools
             window.listContainer = (RectTransform)go.transform;
             window.rowTemplate = row;
             // Окно остаётся активным в сцене: ShopWindow сам скроет его в Awake и повесит кнопку
+        }
+
+        private static void CreateQuestWindow(Transform canvasT, GameRoot root, MapNavigator navigator, StationWindow stationWindow)
+        {
+            Button toggle = CreateSmallButton("QuestsButton", canvasT, "Задания", 24);
+            Place((RectTransform)toggle.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(670f, -220f), new Vector2(200f, 56f));
+
+            var go = new GameObject("QuestWindow", typeof(RectTransform));
+            go.transform.SetParent(canvasT, false);
+            Place((RectTransform)go.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(40f, -286f), new Vector2(680f, 0f));
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.07f, 0.1f, 0.92f);
+            var layout = go.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 10, 10);
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = go.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            ListRow row = CreateListRowTemplate(go.transform);
+
+            QuestWindow window = go.AddComponent<QuestWindow>();
+            window.navigator = navigator;
+            window.stationWindow = stationWindow;
+            window.root = root;
+            window.toggleButton = toggle;
+            window.listContainer = (RectTransform)go.transform;
+            window.rowTemplate = row;
+            // Окно остаётся активным в сцене: QuestWindow сам скроет его в Awake и повесит кнопку
         }
 
         /// <summary>Шаблон строки списка: текст + кнопка справа + скрытая вторая кнопка (выключен).</summary>

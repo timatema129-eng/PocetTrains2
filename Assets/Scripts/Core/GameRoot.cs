@@ -27,6 +27,9 @@ namespace TrainManager.Core
         public PartsService Parts { get; private set; }
         public MaintenanceService Maintenance { get; private set; }
         public ExchangeService Exchange { get; private set; }
+        public RewardService Rewards { get; private set; }
+        public QuestService Quests { get; private set; }
+        public AchievementService Achievements { get; private set; }
 
         /// <summary>Все сервисы созданы — можно пользоваться.</summary>
         public bool IsReady => Trains != null;
@@ -60,11 +63,16 @@ namespace TrainManager.Core
             Wagons = new WagonService(State, database, Wallet, Events, clock, Fuel, Network); // подписывается на прибытие: выгрузка
             Parts = new PartsService(State, database, Wallet, Trains, Events);
             Exchange = new ExchangeService(database, clock, Wallet);
+            Rewards = new RewardService(State, database, Wallet, Parts, Events);
+            Quests = new QuestService(State, database, clock, Events, Network, Rewards); // подписывается на доставку
 
             if (isNewGame)
                 StartNewGame();
             else
                 Repair();
+
+            // Достижения — после стартовой сети, чтобы стартовый регион и бесплатные линии не считались
+            Achievements = new AchievementService(State, database, Events, Rewards);
 
             // Подписки на сохранение — ДО догоняющего Tick, чтобы офлайн-выгрузка тоже сохранилась.
             Events.TrainDeparted += (train, trip) => Save();
@@ -78,10 +86,13 @@ namespace TrainManager.Core
             Events.PartsChanged += () => Save();
             Events.TrainConditionChanged += train => Save();
             Events.WalletChanged += (currency, balance, delta, reason) => Save(); // обмен, покупки, доход
+            Events.QuestsChanged += () => Save();
+            Events.AchievementUnlocked += a => Save();
 
             // Догнать время, пока игра была закрыта: поезда прибудут туда, куда успели доехать,
             // и выгрузят вагоны на пройденных остановках.
             Trains.Tick();
+            Quests.Tick();
 
             Save();
         }
@@ -228,6 +239,7 @@ namespace TrainManager.Core
         private void Update()
         {
             Trains.Tick();
+            Quests.Tick();
         }
 
         private void OnApplicationPause(bool paused)

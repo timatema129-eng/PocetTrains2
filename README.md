@@ -16,13 +16,16 @@ Assets/
 │   │             FuelService (топливо, толчок, заправка), NetworkService (регионы, линии, пути, цвета),
 │   │             PartsService (боксы, детали, сборка, разборка в лом),
 │   │             MaintenanceService (износ, техобслуживание, поломки, ремонт, буксировка),
-│   │             ExchangeService (курс и обмен $ → монеты),
+│   │             ExchangeService (курс и обмен $ → монеты), RewardService (награды),
+│   │             QuestService (задания в городах), AchievementService (достижения),
 │   │             SaveService (сохранение), GameClock (реальное время), GameEvents (события)
 │   ├── Trains/   TrainState, TrainView (картинка поезда), TrainLayer (картинки всех поездов)
-│   ├── Map/      MapView, StationView, LineView, MapNetworkView, MapNavigator (перетаскивание и масштаб)
+│   ├── Map/      MapView, StationView, LineView, MapNetworkView, MapNavigator (перетаскивание и масштаб),
+│   │             QuestMarkerLayer (значки «!» над городами с заданиями)
 │   ├── UI/       StationWindow (окно станции), RoutePlanner (режим маршрута), MapInteraction,
 │   │             TrainSelection (выбранный поезд), TrainListWindow (список поездов), ListRow, WalletText,
-│   │             BoxWindow (боксы и сборка), ShopWindow (магазин), TrainStatusText, RouteButton
+│   │             BoxWindow (боксы и сборка), ShopWindow (магазин), QuestWindow (задания и достижения),
+│   │             TrainStatusText, RouteButton
 │   └── Editor/   MapDataImporter (карта из текста), ParisPrototypeBuilder (сцена)
 ├── Data/
 │   ├── MapSource/*.txt   ← карта мира: по файлу на континент + _World.txt. Правится руками
@@ -108,6 +111,12 @@ Assets/
   меняется раз в час. Отсчёт от реального времени (UTC), поэтому курс совпадает после перезапуска и одинаков у всех.
   Обмен только $ → монеты (1 / 5 / 10 / все). В магазине же боксы и пустое место «Покупки за реальные деньги».
   В окне станции у вагона на складе кнопка «Продать» — 50% цены покупки (черновик, GameDatabase → Exchange and selling).
+- **Задания и достижения (Этап 10):** над городом с заданием жёлтый «!», задание видно в окне станции и в окне
+  «Задания» (кнопка слева, «Показать» — к городу). Два типа: «привези N вагонов в город» и «увези N вагонов из города»
+  (купленные там и доставленные куда угодно), N = 3–5, 3 часа, награда — эпический бокс. Новое задание — раз в час,
+  одновременно до 2 (первое сразу). Боксы из наград лежат в окне «Боксы» и открываются бесплатно.
+  Достижения выдаются сразу: новый регион → 5 $, 3 региона → 15 $, 10 линий, 10/100 вагонов, первый собранный поезд,
+  1000/10 000 км, первое задание. Все числа и список — GameDatabase → Quests / Achievements.
 - **Сохранение:** останови Play, пока поезд едет, подожди и снова нажми Play. Поезд будет там,
   куда успел доехать за это время.
 - Цены и доход — черновик, меняются в `Assets/Data/GameDatabase` (раздел Economy).

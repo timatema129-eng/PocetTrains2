@@ -72,7 +72,7 @@ namespace TrainManager.UI
             {
                 if (box == null) continue;
                 BoxConfig captured = box;
-                ListRow row = AddRow($"  {box.displayName}", $"Открыть {box.priceDollars} $",
+                ListRow row = AddRow($"  {box.displayName}", root.Parts.GetOwnedBoxes(box.boxId) > 0 ? "Открыть бесплатно" : $"Открыть {box.priceDollars} $",
                     () => root.Parts.TryOpenBox(captured, out _));
                 rowAmounts.Add(0);
                 rowBoxes.Add(box);

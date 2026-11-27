@@ -124,10 +124,44 @@ namespace TrainManager.Data
         [Tooltip("Продажа вагона: доля от цены покупки")]
         [Range(0f, 1f)] public float wagonSellShare = 0.5f;
 
+        [Header("Quests (черновик: частота, количество, длительность — уточнить)")]
+        [Tooltip("Сколько заданий может быть одновременно")]
+        [Min(0)] public int maxActiveQuests = 2;
+        [Tooltip("Раз во сколько реальных минут появляется новое задание (если есть место)")]
+        [Min(1)] public int questSpawnMinutes = 60;
+        public List<QuestTemplate> questTemplates = new List<QuestTemplate>
+        {
+            new QuestTemplate { templateId = "deliver_epic", kind = QuestKind.DeliverTo, minWagons = 3, maxWagons = 5,
+                durationMinutes = 180, reward = new RewardData { boxIds = new List<string> { "box_epic" } } },
+            new QuestTemplate { templateId = "take_epic", kind = QuestKind.TakeFrom, minWagons = 3, maxWagons = 5,
+                durationMinutes = 180, reward = new RewardData { boxIds = new List<string> { "box_epic" } } },
+        };
+
+        [Header("Achievements (черновик наград)")]
+        public List<AchievementData> achievements = new List<AchievementData>
+        {
+            new AchievementData { achievementId = "region_1", displayName = "Новый регион", stat = AchievementStat.RegionsUnlocked, target = 1, reward = new RewardData { dollars = 5 } },
+            new AchievementData { achievementId = "region_3", displayName = "Три региона", stat = AchievementStat.RegionsUnlocked, target = 3, reward = new RewardData { dollars = 15 } },
+            new AchievementData { achievementId = "lines_10", displayName = "10 линий", stat = AchievementStat.LinesBought, target = 10, reward = new RewardData { coins = 300 } },
+            new AchievementData { achievementId = "delivered_10", displayName = "10 вагонов доставлено", stat = AchievementStat.WagonsDelivered, target = 10, reward = new RewardData { coins = 200 } },
+            new AchievementData { achievementId = "delivered_100", displayName = "100 вагонов доставлено", stat = AchievementStat.WagonsDelivered, target = 100, reward = new RewardData { dollars = 5 } },
+            new AchievementData { achievementId = "assembled_1", displayName = "Первый собранный поезд", stat = AchievementStat.TrainsAssembled, target = 1, reward = new RewardData { coins = 200 } },
+            new AchievementData { achievementId = "km_1000", displayName = "1000 км", stat = AchievementStat.DistanceKm, target = 1000, reward = new RewardData { dollars = 2 } },
+            new AchievementData { achievementId = "km_10000", displayName = "10 000 км", stat = AchievementStat.DistanceKm, target = 10000, reward = new RewardData { dollars = 10 } },
+            new AchievementData { achievementId = "quest_1", displayName = "Первое задание", stat = AchievementStat.QuestsCompleted, target = 1, reward = new RewardData { dollars = 5 } },
+        };
+
         [Header("Time")]
         [Min(0.01f)]
         [Tooltip("Сколько реальных секунд длится 1 единица времени (дистанция / скорость)")]
         public float secondsPerTimeUnit = 1f;
+
+        public QuestTemplate GetQuestTemplate(string templateId)
+        {
+            foreach (QuestTemplate q in questTemplates)
+                if (q != null && q.templateId == templateId) return q;
+            return null;
+        }
 
         public BoxConfig GetBox(string boxId)
         {
