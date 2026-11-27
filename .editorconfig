@@ -1,0 +1,11 @@
+# Все скрипты сохраняем в UTF-8, чтобы русские комментарии и тексты не превращались в «кракозябры».
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
